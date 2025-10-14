@@ -1,0 +1,43 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+.buildlog/
+build/
+flutter_*.png
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# Platform-specific
+android/.gradle/
+android/local.properties
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+
+# Generated
+*.lock
+*.log
+*.tmp
+*.swp
+*.bak
+*.old
+*.orig
+
+# macOS/Windows
+.DS_Store
+Thumbs.db
+
+# Env / Keys
+.env
+*.keystore
+*.jks
+*.pem
+*.p12
+
+# Cursor / AI workspace files
+cursor-context/
+cursor-history/
