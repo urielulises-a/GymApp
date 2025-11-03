@@ -1,6 +1,6 @@
-# Sistema de Gestión de Gimnasio - Flutter Web
+# Sistema de Gestión de Gimnasio - Flutter Multiplataforma
 
-Una aplicación web moderna para la gestión completa de un gimnasio, desarrollada con Flutter Web.
+Una aplicación moderna para la gestión completa de un gimnasio, desarrollada con Flutter. Disponible para Web y Android.
 
 ## Características
 
@@ -27,9 +27,17 @@ Una aplicación web moderna para la gestión completa de un gimnasio, desarrolla
 
 ## Requisitos
 
+### Para Web
 - Flutter 3.24 o superior
 - Dart 3.0 o superior
 - Navegador web moderno (Chrome, Firefox, Safari, Edge)
+
+### Para Android
+- Flutter 3.24 o superior
+- Dart 3.0 o superior
+- Android SDK (API nivel 21 o superior)
+- Android Studio o Android SDK Command-line Tools
+- Un dispositivo Android o emulador conectado
 
 ## Instalación y Ejecución
 
@@ -45,14 +53,41 @@ Una aplicación web moderna para la gestión completa de un gimnasio, desarrolla
    ```
 
 3. **Ejecutar en modo desarrollo**
+
+   **Para Web:**
    ```bash
    flutter run -d chrome
    ```
+   
+   **Para Android:**
+   ```bash
+   # Listar dispositivos disponibles
+   flutter devices
+   
+   # Ejecutar en dispositivo/emulador Android
+   flutter run -d android
+   ```
 
 4. **Compilar para producción**
+
+   **Para Web:**
    ```bash
    flutter build web
    ```
+   
+   **Para Android:**
+   ```bash
+   # APK de depuración
+   flutter build apk
+   
+   # APK de lanzamiento (requiere configuración de firma)
+   flutter build apk --release
+   
+   # App Bundle para Google Play Store
+   flutter build appbundle --release
+   ```
+   
+   El APK se encontrará en: `build/app/outputs/flutter-apk/app-release.apk`
 
 ## Estructura del Proyecto
 
