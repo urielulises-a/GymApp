@@ -36,7 +36,7 @@ class _LoginPageState extends State<LoginPage> {
       setState(() {
         _isLoading = false;
       });
-      
+
       // Navegar al dashboard
       context.go('/');
     }
@@ -46,7 +46,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -84,7 +84,7 @@ class _LoginPageState extends State<LoginPage> {
                           color: colorScheme.primary,
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Título
                         Text(
                           'Sistema de Gestión de Gimnasio',
@@ -95,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 8),
-                        
+
                         Text(
                           'Inicia sesión para continuar',
                           style: theme.textTheme.bodyMedium?.copyWith(
@@ -104,7 +104,7 @@ class _LoginPageState extends State<LoginPage> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 32),
-                        
+
                         // Campo de email
                         TextFormField(
                           controller: _emailController,
@@ -130,7 +130,7 @@ class _LoginPageState extends State<LoginPage> {
                           },
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Campo de contraseña
                         TextFormField(
                           controller: _passwordController,
@@ -168,7 +168,7 @@ class _LoginPageState extends State<LoginPage> {
                           },
                         ),
                         const SizedBox(height: 24),
-                        
+
                         // Botón de login
                         FilledButton(
                           onPressed: _isLoading ? null : _handleLogin,
@@ -195,40 +195,33 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Enlaces adicionales
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             TextButton(
                               onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Funcionalidad de recuperación de contraseña en desarrollo'),
-                                  ),
-                                );
+                                _showPasswordRecovery();
                               },
                               child: const Text('¿Olvidaste tu contraseña?'),
                             ),
                             TextButton(
                               onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Funcionalidad de registro en desarrollo'),
-                                  ),
-                                );
+                                _showRegisterDialog();
                               },
                               child: const Text('Crear cuenta'),
                             ),
                           ],
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // Información de demo
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                             color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                            color: colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: colorScheme.outline.withValues(alpha: 0.3),
@@ -268,6 +261,91 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _showPasswordRecovery() {
+    final emailController = TextEditingController(text: _emailController.text);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Recuperar contraseña'),
+        content: TextField(
+          controller: emailController,
+          decoration: const InputDecoration(
+            labelText: 'Correo registrado',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: Text(
+                        'Enviamos instrucciones a ${emailController.text.trim()}')),
+              );
+            },
+            child: const Text('Enviar enlace'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRegisterDialog() {
+    final nameController = TextEditingController();
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Crear cuenta'),
+        content: SingleChildScrollView(
+          child: Column(
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Nombre completo'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(labelText: 'Correo'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Contraseña'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: Text(
+                        'Cuenta creada para ${nameController.text.trim()}')),
+              );
+            },
+            child: const Text('Registrar'),
+          ),
+        ],
       ),
     );
   }

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/dates.dart';
+import '../../core/utils/dummy_data.dart';
+import '../../core/utils/export_utils.dart';
 import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/data_table_x.dart';
 import '../../core/widgets/form_dialog.dart';
-import '../../core/utils/dummy_data.dart';
-import '../../core/utils/dates.dart';
 
 class MembersPage extends StatefulWidget {
   const MembersPage({super.key});
@@ -13,11 +14,16 @@ class MembersPage extends StatefulWidget {
 }
 
 class _MembersPageState extends State<MembersPage> {
+  late final List<Member> _members;
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   String _selectedPlan = 'P001';
   String _selectedStatus = 'Activo';
+  String _searchQuery = '';
+  String? _statusFilter;
+  String? _planFilter;
+  DateTimeRange? _joinDateRange;
 
   @override
   void dispose() {
@@ -25,6 +31,12 @@ class _MembersPageState extends State<MembersPage> {
     _emailController.dispose();
     _phoneController.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _members = List<Member>.from(kMembers);
   }
 
   void _showAddMemberDialog() {
@@ -64,7 +76,8 @@ class _MembersPageState extends State<MembersPage> {
               if (value == null || value.isEmpty) {
                 return 'Por favor ingresa el correo';
               }
-              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                  .hasMatch(value)) {
                 return 'Por favor ingresa un correo válido';
               }
               return null;
@@ -87,15 +100,18 @@ class _MembersPageState extends State<MembersPage> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
+            // ignore: deprecated_member_use
             value: _selectedPlan,
             decoration: const InputDecoration(
               labelText: 'Plan',
               border: OutlineInputBorder(),
             ),
-            items: kPlans.map((plan) => DropdownMenuItem(
-              value: plan.id,
-              child: Text('${plan.name} - ${plan.price}'),
-            )).toList(),
+            items: kPlans
+                .map((plan) => DropdownMenuItem(
+                      value: plan.id,
+                      child: Text('${plan.name} - ${plan.price}'),
+                    ))
+                .toList(),
             onChanged: (value) {
               setState(() {
                 _selectedPlan = value!;
@@ -104,6 +120,7 @@ class _MembersPageState extends State<MembersPage> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
+            // ignore: deprecated_member_use
             value: _selectedStatus,
             decoration: const InputDecoration(
               labelText: 'Estado',
@@ -122,13 +139,210 @@ class _MembersPageState extends State<MembersPage> {
           ),
         ],
         onSave: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Demostración: Socio agregado exitosamente')),
+          final member = Member(
+            id: _generateMemberId(),
+            name: _nameController.text.trim(),
+            email: _emailController.text.trim(),
+            phone: _phoneController.text.trim(),
+            joinDate: DateTime.now(),
+            status: _selectedStatus,
+            planId: _selectedPlan,
           );
-          Navigator.of(context).pop();
+
+          setState(() {
+            _members.add(member);
+          });
+
+          if (mounted) {
+            Navigator.of(context).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Socio ${member.name} agregado')),
+            );
+          }
         },
       ),
     );
+  }
+
+  List<Member> get _filteredMembers {
+    return _members.where((member) {
+      final matchesSearch = _searchQuery.isEmpty ||
+          member.name.toLowerCase().contains(_searchQuery) ||
+          member.email.toLowerCase().contains(_searchQuery) ||
+          member.phone.toLowerCase().contains(_searchQuery);
+      final matchesStatus =
+          _statusFilter == null || member.status == _statusFilter;
+      final matchesPlan = _planFilter == null || member.planId == _planFilter;
+      final matchesDate = _joinDateRange == null ||
+          (member.joinDate.isAfter(
+                  _joinDateRange!.start.subtract(const Duration(days: 1))) &&
+              member.joinDate
+                  .isBefore(_joinDateRange!.end.add(const Duration(days: 1))));
+      return matchesSearch && matchesStatus && matchesPlan && matchesDate;
+    }).toList();
+  }
+
+  void _openFilterSheet() {
+    String? tempStatus = _statusFilter;
+    String? tempPlan = _planFilter;
+    DateTimeRange? tempRange = _joinDateRange;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+            top: 24,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setModalState) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Filtros avanzados',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String?>(
+                  // ignore: deprecated_member_use
+                  value: tempStatus,
+                  decoration: const InputDecoration(
+                    labelText: 'Estado',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('Todos')),
+                    DropdownMenuItem(value: 'Activo', child: Text('Activo')),
+                    DropdownMenuItem(
+                        value: 'Inactivo', child: Text('Inactivo')),
+                    DropdownMenuItem(
+                        value: 'Suspendido', child: Text('Suspendido')),
+                  ],
+                  onChanged: (value) => setModalState(() => tempStatus = value),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String?>(
+                  // ignore: deprecated_member_use
+                  value: tempPlan,
+                  decoration: const InputDecoration(
+                    labelText: 'Plan',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Todos')),
+                    ...kPlans.map((plan) => DropdownMenuItem(
+                          value: plan.id,
+                          child: Text(plan.name),
+                        )),
+                  ],
+                  onChanged: (value) => setModalState(() => tempPlan = value),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.date_range),
+                  title: const Text('Rango de fechas'),
+                  subtitle: Text(
+                    tempRange == null
+                        ? 'Sin filtro'
+                        : '${DateFormatter.formatDate(tempRange!.start)} — ${DateFormatter.formatDate(tempRange!.end)}',
+                  ),
+                  onTap: () async {
+                    final range = await showDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2023),
+                      lastDate: DateTime.now(),
+                      initialDateRange: tempRange,
+                    );
+                    if (range != null) {
+                      setModalState(() => tempRange = range);
+                    }
+                  },
+                  trailing: tempRange != null
+                      ? IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () =>
+                              setModalState(() => tempRange = null),
+                        )
+                      : null,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        setModalState(() {
+                          tempStatus = null;
+                          tempPlan = null;
+                          tempRange = null;
+                        });
+                      },
+                      child: const Text('Limpiar filtros'),
+                    ),
+                    const Spacer(),
+                    FilledButton(
+                      onPressed: () {
+                        setState(() {
+                          _statusFilter = tempStatus;
+                          _planFilter = tempPlan;
+                          _joinDateRange = tempRange;
+                        });
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Aplicar'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _exportMembers(List<Member> members) {
+    final rows = members.map((member) {
+      final plan = kPlans.firstWhere((p) => p.id == member.planId);
+      return [
+        member.id,
+        member.name,
+        member.email,
+        member.phone,
+        DateFormatter.formatDate(member.joinDate),
+        member.status,
+        plan.name,
+      ];
+    }).toList();
+
+    DataExporter.copyAsCsv(
+      context: context,
+      fileName: 'socios',
+      headers: [
+        'ID',
+        'Nombre',
+        'Correo',
+        'Teléfono',
+        'Fecha ingreso',
+        'Estado',
+        'Plan'
+      ],
+      rows: rows,
+    );
+  }
+
+  String _generateMemberId() {
+    final next = _members.length + 1;
+    return 'M${next.toString().padLeft(3, '0')}';
   }
 
   @override
@@ -137,8 +351,17 @@ class _MembersPageState extends State<MembersPage> {
     final colorScheme = theme.colorScheme;
 
     // Preparar datos para la tabla
-    final columns = ['ID', 'Nombre', 'Email', 'Teléfono', 'Fecha Ingreso', 'Estado', 'Plan'];
-    final rows = kMembers.map((member) {
+    final columns = [
+      'ID',
+      'Nombre',
+      'Email',
+      'Teléfono',
+      'Fecha Ingreso',
+      'Estado',
+      'Plan'
+    ];
+    final members = _filteredMembers;
+    final rows = members.map((member) {
       final plan = kPlans.firstWhere((p) => p.id == member.planId);
       return [
         member.id,
@@ -184,7 +407,7 @@ class _MembersPageState extends State<MembersPage> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '${kMembers.length}',
+                            '${_members.length}',
                             style: theme.textTheme.headlineMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: colorScheme.primary,
@@ -213,7 +436,7 @@ class _MembersPageState extends State<MembersPage> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            '${kMembers.where((m) => m.status == 'Activo').length}',
+                            '${_members.where((m) => m.status == 'Activo').length}',
                             style: theme.textTheme.headlineMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: colorScheme.secondary,
@@ -237,22 +460,19 @@ class _MembersPageState extends State<MembersPage> {
               columns: columns,
               rows: rows,
               searchHint: 'Buscar socios...',
+              onSearchChanged: (value) => setState(() {
+                _searchQuery = value.toLowerCase();
+              }),
               actions: [
                 IconButton(
                   icon: const Icon(Icons.filter_list),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Funcionalidad de filtros en desarrollo')),
-                    );
-                  },
+                  tooltip: 'Abrir filtros',
+                  onPressed: _openFilterSheet,
                 ),
                 IconButton(
                   icon: const Icon(Icons.download),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Funcionalidad de exportación en desarrollo')),
-                    );
-                  },
+                  tooltip: 'Exportar CSV',
+                  onPressed: () => _exportMembers(members),
                 ),
               ],
             ),

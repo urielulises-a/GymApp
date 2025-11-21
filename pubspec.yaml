@@ -12,6 +12,7 @@ dependencies:
   flex_color_scheme: ^8.0.0
   fl_chart: ^0.66.0
   printing: ^5.13.0
+  pdf: ^3.10.8
   google_fonts: ^6.2.1
 
 dev_dependencies:

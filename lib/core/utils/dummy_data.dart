@@ -148,7 +148,12 @@ final List<Plan> kPlans = [
     description: 'Acceso completo con clases grupales',
     price: 800.0,
     durationDays: 30,
-    features: ['Acceso al gimnasio', 'Clases grupales', 'Entrenador personal', 'Nutricionista'],
+    features: [
+      'Acceso al gimnasio',
+      'Clases grupales',
+      'Entrenador personal',
+      'Nutricionista'
+    ],
   ),
   Plan(
     id: 'P003',
@@ -156,7 +161,13 @@ final List<Plan> kPlans = [
     description: 'Acceso premium con servicios exclusivos',
     price: 1200.0,
     durationDays: 30,
-    features: ['Acceso completo', 'Clases privadas', 'Masajes', 'Spa', 'Nutricionista personal'],
+    features: [
+      'Acceso completo',
+      'Clases privadas',
+      'Masajes',
+      'Spa',
+      'Nutricionista personal'
+    ],
   ),
 ];
 

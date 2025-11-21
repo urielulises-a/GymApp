@@ -12,7 +12,7 @@ class DashboardPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+
     return AppScaffold(
       title: 'Dashboard',
       body: SingleChildScrollView(
@@ -43,7 +43,8 @@ class DashboardPage extends StatelessWidget {
                 ),
                 KpiCard(
                   title: 'Ingresos Mensuales',
-                  value: MoneyFormatter.format(kDashboardKPIs['monthlyRevenue']),
+                  value:
+                      MoneyFormatter.format(kDashboardKPIs['monthlyRevenue']),
                   subtitle: 'Este mes',
                   icon: Icons.attach_money_outlined,
                 ),
@@ -56,7 +57,7 @@ class DashboardPage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-            
+
             // Charts Section
             Text(
               'Estadísticas',
@@ -65,7 +66,7 @@ class DashboardPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Revenue Chart
             Card(
               child: Padding(
@@ -101,7 +102,14 @@ class DashboardPage extends StatelessWidget {
                               sideTitles: SideTitles(
                                 showTitles: true,
                                 getTitlesWidget: (value, meta) {
-                                  const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'];
+                                  const months = [
+                                    'Ene',
+                                    'Feb',
+                                    'Mar',
+                                    'Abr',
+                                    'May',
+                                    'Jun'
+                                  ];
                                   return Text(
                                     months[value.toInt() % months.length],
                                     style: theme.textTheme.bodySmall,
@@ -109,8 +117,10 @@ class DashboardPage extends StatelessWidget {
                                 },
                               ),
                             ),
-                            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                            topTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            rightTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
                           ),
                           borderData: FlBorderData(show: true),
                           lineBarsData: [
@@ -129,7 +139,8 @@ class DashboardPage extends StatelessWidget {
                               dotData: FlDotData(show: true),
                               belowBarData: BarAreaData(
                                 show: true,
-                                color: colorScheme.primary.withValues(alpha: 0.1),
+                                color:
+                                    colorScheme.primary.withValues(alpha: 0.1),
                               ),
                             ),
                           ],
@@ -141,7 +152,7 @@ class DashboardPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Members Chart
             Card(
               child: Padding(
@@ -202,7 +213,7 @@ class DashboardPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Recent Activity
             Card(
               child: Padding(
@@ -218,27 +229,28 @@ class DashboardPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     ...kMembers.take(3).map((member) => ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: colorScheme.primaryContainer,
-                        child: Icon(
-                          Icons.person,
-                          color: colorScheme.onPrimaryContainer,
-                        ),
-                      ),
-                      title: Text(member.name),
-                      subtitle: Text('Se unió el ${member.joinDate.day}/${member.joinDate.month}/${member.joinDate.year}'),
-                      trailing: Chip(
-                        label: Text(member.status),
-                        backgroundColor: member.status == 'Activo' 
-                            ? colorScheme.primaryContainer
-                            : colorScheme.errorContainer,
-                        labelStyle: TextStyle(
-                          color: member.status == 'Activo'
-                              ? colorScheme.onPrimaryContainer
-                              : colorScheme.onErrorContainer,
-                        ),
-                      ),
-                    )),
+                          leading: CircleAvatar(
+                            backgroundColor: colorScheme.primaryContainer,
+                            child: Icon(
+                              Icons.person,
+                              color: colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                          title: Text(member.name),
+                          subtitle: Text(
+                              'Se unió el ${member.joinDate.day}/${member.joinDate.month}/${member.joinDate.year}'),
+                          trailing: Chip(
+                            label: Text(member.status),
+                            backgroundColor: member.status == 'Activo'
+                                ? colorScheme.primaryContainer
+                                : colorScheme.errorContainer,
+                            labelStyle: TextStyle(
+                              color: member.status == 'Activo'
+                                  ? colorScheme.onPrimaryContainer
+                                  : colorScheme.onErrorContainer,
+                            ),
+                          ),
+                        )),
                   ],
                 ),
               ),
