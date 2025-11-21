@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+
+import '../../core/utils/dates.dart';
+import '../../core/utils/dummy_data.dart';
+import '../../core/utils/export_utils.dart';
 import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/kpi_card.dart';
-import '../../core/utils/dummy_data.dart';
-import '../../core/utils/dates.dart';
 
 class ReportsPage extends StatelessWidget {
   const ReportsPage({super.key});
@@ -12,25 +16,25 @@ class ReportsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final summary = {
+      'Ingresos Totales': MoneyFormatter.format(125000.0),
+      'Socios Activos': '${kMembers.where((m) => m.status == 'Activo').length}',
+      'Asistencia Promedio': '78.5%',
+      'Renovaciones': '85.2%',
+    };
 
     return AppScaffold(
       title: 'Reportes y Estadísticas',
       actions: [
         IconButton(
           icon: const Icon(Icons.download),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Funcionalidad de exportación en desarrollo')),
-            );
-          },
+          tooltip: 'Exportar CSV',
+          onPressed: () => _exportReports(context, summary),
         ),
         IconButton(
           icon: const Icon(Icons.print),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Funcionalidad de impresión en desarrollo')),
-            );
-          },
+          tooltip: 'Imprimir',
+          onPressed: () => _printReports(summary),
         ),
       ],
       body: SingleChildScrollView(
@@ -62,7 +66,8 @@ class ReportsPage extends StatelessWidget {
                 ),
                 KpiCard(
                   title: 'Socios Activos',
-                  value: '${kMembers.where((m) => m.status == 'Activo').length}',
+                  value:
+                      '${kMembers.where((m) => m.status == 'Activo').length}',
                   subtitle: 'Miembros activos',
                   icon: Icons.person_outlined,
                 ),
@@ -127,7 +132,14 @@ class ReportsPage extends StatelessWidget {
                               sideTitles: SideTitles(
                                 showTitles: true,
                                 getTitlesWidget: (value, meta) {
-                                  const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'];
+                                  const months = [
+                                    'Ene',
+                                    'Feb',
+                                    'Mar',
+                                    'Abr',
+                                    'May',
+                                    'Jun'
+                                  ];
                                   return Text(
                                     months[value.toInt() % months.length],
                                     style: theme.textTheme.bodySmall,
@@ -135,17 +147,37 @@ class ReportsPage extends StatelessWidget {
                                 },
                               ),
                             ),
-                            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                            topTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            rightTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
                           ),
                           borderData: FlBorderData(show: true),
                           barGroups: [
-                            BarChartGroupData(x: 0, barRods: [BarChartRodData(toY: 100000, color: colorScheme.primary)]),
-                            BarChartGroupData(x: 1, barRods: [BarChartRodData(toY: 120000, color: colorScheme.primary)]),
-                            BarChartGroupData(x: 2, barRods: [BarChartRodData(toY: 110000, color: colorScheme.primary)]),
-                            BarChartGroupData(x: 3, barRods: [BarChartRodData(toY: 125000, color: colorScheme.primary)]),
-                            BarChartGroupData(x: 4, barRods: [BarChartRodData(toY: 130000, color: colorScheme.primary)]),
-                            BarChartGroupData(x: 5, barRods: [BarChartRodData(toY: 125000, color: colorScheme.primary)]),
+                            BarChartGroupData(x: 0, barRods: [
+                              BarChartRodData(
+                                  toY: 100000, color: colorScheme.primary)
+                            ]),
+                            BarChartGroupData(x: 1, barRods: [
+                              BarChartRodData(
+                                  toY: 120000, color: colorScheme.primary)
+                            ]),
+                            BarChartGroupData(x: 2, barRods: [
+                              BarChartRodData(
+                                  toY: 110000, color: colorScheme.primary)
+                            ]),
+                            BarChartGroupData(x: 3, barRods: [
+                              BarChartRodData(
+                                  toY: 125000, color: colorScheme.primary)
+                            ]),
+                            BarChartGroupData(x: 4, barRods: [
+                              BarChartRodData(
+                                  toY: 130000, color: colorScheme.primary)
+                            ]),
+                            BarChartGroupData(x: 5, barRods: [
+                              BarChartRodData(
+                                  toY: 125000, color: colorScheme.primary)
+                            ]),
                           ],
                         ),
                       ),
@@ -191,7 +223,14 @@ class ReportsPage extends StatelessWidget {
                               sideTitles: SideTitles(
                                 showTitles: true,
                                 getTitlesWidget: (value, meta) {
-                                  const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'];
+                                  const months = [
+                                    'Ene',
+                                    'Feb',
+                                    'Mar',
+                                    'Abr',
+                                    'May',
+                                    'Jun'
+                                  ];
                                   return Text(
                                     months[value.toInt() % months.length],
                                     style: theme.textTheme.bodySmall,
@@ -199,8 +238,10 @@ class ReportsPage extends StatelessWidget {
                                 },
                               ),
                             ),
-                            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                            topTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            rightTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
                           ),
                           borderData: FlBorderData(show: true),
                           lineBarsData: [
@@ -219,7 +260,8 @@ class ReportsPage extends StatelessWidget {
                               dotData: FlDotData(show: true),
                               belowBarData: BarAreaData(
                                 show: true,
-                                color: colorScheme.secondary.withValues(alpha: 0.1),
+                                color: colorScheme.secondary
+                                    .withValues(alpha: 0.1),
                               ),
                             ),
                           ],
@@ -296,4 +338,56 @@ class ReportsPage extends StatelessWidget {
       ),
     );
   }
+}
+
+void _exportReports(BuildContext context, Map<String, String> summary) {
+  DataExporter.shareSummary(
+    context: context,
+    title: 'resumen-reportes',
+    data: summary,
+  );
+}
+
+Future<void> _printReports(Map<String, String> summary) async {
+  await Printing.layoutPdf(
+    onLayout: (format) async {
+      final doc = pw.Document();
+      doc.addPage(
+        pw.Page(
+          pageTheme: const pw.PageTheme(margin: pw.EdgeInsets.all(32)),
+          build: (context) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                'Resumen de Reportes',
+                style:
+                    pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 16),
+              ...summary.entries.map(
+                (entry) => pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 4),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(entry.key,
+                          style: const pw.TextStyle(fontSize: 14)),
+                      pw.Text(entry.value,
+                          style: const pw.TextStyle(fontSize: 14)),
+                    ],
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 24),
+              pw.Text(
+                'Generado el ${DateFormatter.formatDate(DateTime.now())}',
+                style: const pw.TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+      );
+      return doc.save();
+    },
+  );
 }

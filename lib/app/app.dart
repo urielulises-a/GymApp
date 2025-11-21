@@ -18,7 +18,7 @@ class GymApp extends StatelessWidget {
         subThemesData: const FlexSubThemesData(
           blendOnLevel: 10,
           blendOnColors: false,
-            useMaterial3Typography: true,
+          useMaterial3Typography: true,
           useM2StyleDividerInM3: true,
           alignedDropdown: true,
           useInputDecoratorThemeInDialogs: true,

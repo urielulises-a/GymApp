@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../core/utils/dates.dart';
+import '../../core/utils/dummy_data.dart';
 import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/form_dialog.dart';
-import '../../core/utils/dummy_data.dart';
-import '../../core/utils/dates.dart';
 
 class PlansPage extends StatefulWidget {
   const PlansPage({super.key});
@@ -12,11 +12,12 @@ class PlansPage extends StatefulWidget {
 }
 
 class _PlansPageState extends State<PlansPage> {
+  late final List<Plan> _plans;
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
   final _durationController = TextEditingController();
-  final List<String> _features = [];
+  final _featuresController = TextEditingController();
 
   @override
   void dispose() {
@@ -24,20 +25,35 @@ class _PlansPageState extends State<PlansPage> {
     _descriptionController.dispose();
     _priceController.dispose();
     _durationController.dispose();
+    _featuresController.dispose();
     super.dispose();
   }
 
-  void _showAddPlanDialog() {
-    _nameController.clear();
-    _descriptionController.clear();
-    _priceController.clear();
-    _durationController.clear();
-    _features.clear();
+  @override
+  void initState() {
+    super.initState();
+    _plans = List<Plan>.from(kPlans);
+  }
+
+  void _showPlanDialog({Plan? plan}) {
+    if (plan == null) {
+      _nameController.clear();
+      _descriptionController.clear();
+      _priceController.clear();
+      _durationController.clear();
+      _featuresController.clear();
+    } else {
+      _nameController.text = plan.name;
+      _descriptionController.text = plan.description;
+      _priceController.text = plan.price.toStringAsFixed(2);
+      _durationController.text = plan.durationDays.toString();
+      _featuresController.text = plan.features.join(', ');
+    }
 
     showDialog(
       context: context,
       builder: (context) => FormDialog(
-        title: 'Agregar Nueva Membresía',
+        title: plan == null ? 'Agregar Nueva Membresía' : 'Editar Membresía',
         fields: [
           TextFormField(
             controller: _nameController,
@@ -105,15 +121,83 @@ class _PlansPageState extends State<PlansPage> {
               return null;
             },
           ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _featuresController,
+            decoration: const InputDecoration(
+              labelText: 'Características (separadas por coma)',
+              border: OutlineInputBorder(),
+              hintText: 'Acceso,Clases,Nutrición',
+            ),
+          ),
         ],
         onSave: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Demostración: Membresía agregada exitosamente')),
+          final planFeatures = _featuresController.text
+              .split(',')
+              .map((feature) => feature.trim())
+              .where((feature) => feature.isNotEmpty)
+              .toList();
+          final parsedPrice =
+              double.tryParse(_priceController.text.replaceAll(',', '.')) ?? 0;
+          final parsedDuration = int.tryParse(_durationController.text) ?? 30;
+
+          final newPlan = Plan(
+            id: plan?.id ?? _generatePlanId(),
+            name: _nameController.text.trim(),
+            description: _descriptionController.text.trim(),
+            price: parsedPrice,
+            durationDays: parsedDuration,
+            features:
+                planFeatures.isEmpty ? ['Acceso al gimnasio'] : planFeatures,
           );
-          Navigator.of(context).pop();
+
+          setState(() {
+            if (plan == null) {
+              _plans.add(newPlan);
+            } else {
+              final index = _plans.indexWhere((p) => p.id == plan.id);
+              if (index != -1) {
+                _plans[index] = newPlan;
+              }
+            }
+          });
+
+          if (mounted) {
+            Navigator.of(context).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content:
+                    Text(plan == null ? 'Plan creado' : 'Plan actualizado'),
+              ),
+            );
+          }
         },
       ),
     );
+  }
+
+  void _confirmDelete(Plan plan) {
+    showDialog(
+      context: context,
+      builder: (context) => ConfirmDialog(
+        title: 'Eliminar plan',
+        content: 'Esta acción eliminará "${plan.name}". ¿Deseas continuar?',
+        onConfirm: () {
+          setState(() {
+            _plans.removeWhere((p) => p.id == plan.id);
+          });
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Plan ${plan.name} eliminado')),
+          );
+        },
+      ),
+    );
+  }
+
+  String _generatePlanId() {
+    final next = _plans.length + 1;
+    return 'P${next.toString().padLeft(3, '0')}';
   }
 
   @override
@@ -126,11 +210,11 @@ class _PlansPageState extends State<PlansPage> {
       actions: [
         IconButton(
           icon: const Icon(Icons.add),
-          onPressed: _showAddPlanDialog,
+          onPressed: () => _showPlanDialog(),
         ),
       ],
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddPlanDialog,
+        onPressed: () => _showPlanDialog(),
         child: const Icon(Icons.add),
       ),
       body: SingleChildScrollView(
@@ -148,9 +232,9 @@ class _PlansPageState extends State<PlansPage> {
                 mainAxisSpacing: 16,
                 childAspectRatio: 0.8,
               ),
-              itemCount: kPlans.length,
+              itemCount: _plans.length,
               itemBuilder: (context, index) {
-                final plan = kPlans[index];
+                final plan = _plans[index];
                 return Card(
                   elevation: 4,
                   child: Padding(
@@ -170,14 +254,10 @@ class _PlansPageState extends State<PlansPage> {
                               onSelected: (value) {
                                 switch (value) {
                                   case 'edit':
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Funcionalidad de edición en desarrollo')),
-                                    );
+                                    _showPlanDialog(plan: plan);
                                     break;
                                   case 'delete':
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Funcionalidad de eliminación en desarrollo')),
-                                    );
+                                    _confirmDelete(plan);
                                     break;
                                 }
                               },
@@ -260,26 +340,26 @@ class _PlansPageState extends State<PlansPage> {
                               ),
                               const SizedBox(height: 4),
                               ...plan.features.take(3).map((feature) => Padding(
-                                padding: const EdgeInsets.only(bottom: 2),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.check_circle_outline,
-                                      size: 16,
-                                      color: colorScheme.primary,
+                                    padding: const EdgeInsets.only(bottom: 2),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle_outline,
+                                          size: 16,
+                                          color: colorScheme.primary,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            feature,
+                                            style: theme.textTheme.bodySmall,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        feature,
-                                        style: theme.textTheme.bodySmall,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )),
+                                  )),
                               if (plan.features.length > 3)
                                 Text(
                                   '+${plan.features.length - 3} más',

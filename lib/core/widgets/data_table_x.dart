@@ -19,7 +19,7 @@ class DataTableX extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Card(
       child: Column(
         children: [
@@ -55,17 +55,21 @@ class DataTableX extends StatelessWidget {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: DataTable(
-              columns: columns.map((column) => DataColumn(
-                label: Text(
-                  column,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              )).toList(),
-              rows: rows.map((row) => DataRow(
-                cells: row.map((cell) => DataCell(Text(cell))).toList(),
-              )).toList(),
+              columns: columns
+                  .map((column) => DataColumn(
+                        label: Text(
+                          column,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ))
+                  .toList(),
+              rows: rows
+                  .map((row) => DataRow(
+                        cells: row.map((cell) => DataCell(Text(cell))).toList(),
+                      ))
+                  .toList(),
             ),
           ),
         ],
