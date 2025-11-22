@@ -3,9 +3,9 @@ publish_to: 'none'
 environment:
   sdk: ">=3.4.0 <4.0.0"
 dependencies:
-  flutter: 
+  flutter:
     sdk: flutter
-  flutter_localizations: 
+  flutter_localizations:
     sdk: flutter
   go_router: ^14.0.0
   intl: ^0.20.2
@@ -14,8 +14,14 @@ dependencies:
   printing: ^5.13.0
   pdf: ^3.10.8
   google_fonts: ^6.2.1
+  http: ^1.2.0
+  shared_preferences: ^2.2.0
+  flutter_dotenv: ^5.1.0
+  provider: ^6.1.0
 
 dev_dependencies:
   flutter_lints: ^4.0.0
 flutter:
   uses-material-design: true
+  assets:
+    - .env

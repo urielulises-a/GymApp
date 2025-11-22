@@ -96,7 +96,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         });
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                              content: Text('Demostración: Tema cambiado')),
+                              content: Text('Tema cambiado exitosamente')),
                         );
                       },
                     ),
@@ -328,7 +328,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                         content: Text(
-                                            'Demostración: Sesión cerrada')),
+                                            'Sesión cerrada exitosamente')),
                                   );
                                 },
                                 child: const Text('Cerrar Sesión'),

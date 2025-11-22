@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/services/auth_service.dart';
+import '../../core/services/http_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -12,6 +14,7 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _authService = AuthService();
   bool _obscurePassword = true;
   bool _isLoading = false;
 
@@ -29,16 +32,51 @@ class _LoginPageState extends State<LoginPage> {
       _isLoading = true;
     });
 
-    // Simular proceso de login
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      // Llamar al servicio de autenticación
+      final authResponse = await _authService.login(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
 
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        // Mostrar mensaje de éxito
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Bienvenido, ${authResponse.user.name}'),
+            backgroundColor: Colors.green,
+          ),
+        );
 
-      // Navegar al dashboard
-      context.go('/');
+        // Navegar al dashboard
+        context.go('/');
+      }
+    } on ApiException catch (e) {
+      // Manejar errores de la API
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      // Manejar otros errores
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error inesperado: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -214,45 +252,6 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-
-                        // Información de demo
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHighest
-                                .withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: colorScheme.outline.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: colorScheme.primary,
-                                size: 20,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Modo Demo',
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.primary,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Usa cualquier email y contraseña para acceder',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -285,12 +284,28 @@ class _LoginPageState extends State<LoginPage> {
           ),
           FilledButton(
             onPressed: () async {
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: Text(
-                        'Enviamos instrucciones a ${emailController.text.trim()}')),
-              );
+              final email = emailController.text.trim();
+              if (email.isEmpty) return;
+
+              try {
+                final message = await _authService.forgotPassword(email);
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(message)),
+                  );
+                }
+              } on ApiException catch (e) {
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(e.message),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('Enviar enlace'),
           ),
@@ -335,13 +350,44 @@ class _LoginPageState extends State<LoginPage> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: Text(
-                        'Cuenta creada para ${nameController.text.trim()}')),
-              );
+            onPressed: () async {
+              final name = nameController.text.trim();
+              final email = emailController.text.trim();
+              final password = passwordController.text;
+
+              if (name.isEmpty || email.isEmpty || password.isEmpty) {
+                return;
+              }
+
+              try {
+                await _authService.register(
+                  name: name,
+                  email: email,
+                  password: password,
+                );
+
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Cuenta creada para $name'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  // Navegar al dashboard después de registrarse
+                  context.go('/');
+                }
+              } on ApiException catch (e) {
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(e.message),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('Registrar'),
           ),

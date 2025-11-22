@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-
+import '../../core/models/attendance.dart';
+import '../../core/models/member.dart';
+import '../../core/services/attendance_service.dart';
+import '../../core/services/members_service.dart';
+import '../../core/services/http_service.dart';
 import '../../core/utils/dates.dart';
-import '../../core/utils/dummy_data.dart';
 import '../../core/utils/export_utils.dart';
 import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/data_table_x.dart';
@@ -14,62 +17,167 @@ class AttendancePage extends StatefulWidget {
 }
 
 class _AttendancePageState extends State<AttendancePage> {
-  late final List<Attendance> _attendances;
-  String _selectedMember = 'M001';
+  final _attendanceService = AttendanceService();
+  final _membersService = MembersService();
+  final _qrController = TextEditingController();
+  final _searchController = TextEditingController();
+
+  List<Attendance> _attendances = [];
+  List<Member> _members = [];
+  List<Member> _filteredMembersForSearch = [];
+  bool _isLoading = false;
   String _searchQuery = '';
   String? _statusFilter;
   String? _memberFilter;
   DateTimeRange? _dateRange;
-  final _qrController = TextEditingController();
+  bool _showMemberSuggestions = false;
+
+  String? _selectedMemberId;
 
   @override
   void initState() {
     super.initState();
-    _attendances = List<Attendance>.from(kAttendance);
+    _loadData();
   }
 
   @override
   void dispose() {
     _qrController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  void _checkIn({String? memberId}) {
-    final member =
-        kMembers.firstWhere((m) => m.id == (memberId ?? _selectedMember));
-    final entry = Attendance(
-      id: _generateAttendanceId(),
-      memberId: member.id,
-      checkInTime: DateTime.now(),
-      checkOutTime: null,
-      status: 'En curso',
-    );
-
+  void _filterMembers(String query) {
     setState(() {
-      _attendances.insert(0, entry);
+      _searchQuery = query;
+      if (query.isEmpty) {
+        _filteredMembersForSearch = [];
+        _showMemberSuggestions = false;
+      } else {
+        _filteredMembersForSearch = _members.where((member) {
+          return member.name.toLowerCase().contains(query.toLowerCase()) ||
+              member.email.toLowerCase().contains(query.toLowerCase()) ||
+              member.phone?.toLowerCase().contains(query.toLowerCase()) == true ||
+              member.displayId.toLowerCase().contains(query.toLowerCase());
+        }).take(5).toList();
+        _showMemberSuggestions = _filteredMembersForSearch.isNotEmpty;
+      }
     });
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Check-in registrado para ${member.name}')),
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final attendanceResponse = await _attendanceService.getAttendance(
+        page: 1,
+        limit: 100,
+        memberId: _memberFilter,
+        status: _statusFilter,
+        fromDate: _dateRange?.start.toIso8601String(),
+        toDate: _dateRange?.end.toIso8601String(),
+      );
+
+      final membersResponse = await _membersService.getMembers(
+        page: 1,
+        limit: 1000,
+        status: 'Activo',
+      );
+
+      if (mounted) {
+        setState(() {
+          _attendances = attendanceResponse.data ?? [];
+          _members = membersResponse.data ?? [];
+          _isLoading = false;
+        });
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showError('Error al cargar datos: ${e.message}');
+      }
+    }
+  }
+
+  Future<void> _checkIn({String? memberId}) async {
+    final memberIdToUse = memberId ?? _selectedMemberId;
+    if (memberIdToUse == null) {
+      _showError('Por favor selecciona un socio');
+      return;
+    }
+
+    try {
+      await _attendanceService.checkIn(memberIdToUse);
+
+      final member = _members.firstWhere(
+        (m) => m.id == memberIdToUse,
+        orElse: () => Member(
+          id: memberIdToUse,
+          name: 'Desconocido',
+          email: '',
+          phone: '',
+          joinDate: DateTime.now().toIso8601String(),
+          status: '',
+          planId: '',
+          displayId: '',
+          createdAt: DateTime.now().toIso8601String(),
+          updatedAt: DateTime.now().toIso8601String(),
+        ),
+      );
+
+      _showSuccess('Check-in registrado para ${member.name}');
+      _loadData();
+    } on ApiException catch (e) {
+      _showError('Error al registrar entrada: ${e.message}');
+    }
+  }
+
+  Future<void> _checkOut(Attendance attendance) async {
+    try {
+      await _attendanceService.checkOut(attendance.id);
+      _showSuccess('Check-out registrado');
+      _loadData();
+    } on ApiException catch (e) {
+      _showError('Error al registrar salida: ${e.message}');
+    }
+  }
+
+  Future<void> _deleteAttendance(Attendance attendance) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar eliminacion'),
+        content: Text('Eliminar el registro ${attendance.id}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
     );
+
+    if (confirm != true) return;
+
+    try {
+      await _attendanceService.deleteAttendance(attendance.id);
+      _showSuccess('Registro eliminado');
+      _loadData();
+    } on ApiException catch (e) {
+      _showError('Error al eliminar: ${e.message}');
+    }
   }
 
   List<Attendance> get _filteredAttendance {
     return _attendances.where((attendance) {
-      final member = kMembers.firstWhere((m) => m.id == attendance.memberId);
       final matchesSearch = _searchQuery.isEmpty ||
-          member.name.toLowerCase().contains(_searchQuery) ||
           attendance.id.toLowerCase().contains(_searchQuery);
-      final matchesStatus =
-          _statusFilter == null || attendance.status == _statusFilter;
-      final matchesMember =
-          _memberFilter == null || attendance.memberId == _memberFilter;
-      final matchesDate = _dateRange == null ||
-          (attendance.checkInTime.isAfter(
-                  _dateRange!.start.subtract(const Duration(days: 1))) &&
-              attendance.checkInTime
-                  .isBefore(_dateRange!.end.add(const Duration(days: 1))));
-      return matchesSearch && matchesStatus && matchesMember && matchesDate;
+      return matchesSearch;
     }).toList();
   }
 
@@ -88,7 +196,6 @@ class _AttendancePageState extends State<AttendancePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String?>(
-                // ignore: deprecated_member_use
                 value: tempStatus,
                 decoration: const InputDecoration(
                   labelText: 'Estado',
@@ -96,15 +203,13 @@ class _AttendancePageState extends State<AttendancePage> {
                 ),
                 items: const [
                   DropdownMenuItem(value: null, child: Text('Todos')),
-                  DropdownMenuItem(
-                      value: 'Completado', child: Text('Completado')),
+                  DropdownMenuItem(value: 'Completado', child: Text('Completado')),
                   DropdownMenuItem(value: 'En curso', child: Text('En curso')),
                 ],
                 onChanged: (value) => setModalState(() => tempStatus = value),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String?>(
-                // ignore: deprecated_member_use
                 value: tempMember,
                 decoration: const InputDecoration(
                   labelText: 'Socio',
@@ -112,7 +217,7 @@ class _AttendancePageState extends State<AttendancePage> {
                 ),
                 items: [
                   const DropdownMenuItem(value: null, child: Text('Todos')),
-                  ...kMembers.map((member) => DropdownMenuItem(
+                  ..._members.map((member) => DropdownMenuItem(
                         value: member.id,
                         child: Text(member.name),
                       )),
@@ -127,7 +232,7 @@ class _AttendancePageState extends State<AttendancePage> {
                 subtitle: Text(
                   tempRange == null
                       ? 'Sin filtro'
-                      : '${DateFormatter.formatDate(tempRange!.start)} — ${DateFormatter.formatDate(tempRange!.end)}',
+                      : '${DateFormatter.formatDate(tempRange!.start)} - ${DateFormatter.formatDate(tempRange!.end)}',
                 ),
                 onTap: () async {
                   final range = await showDateRangePicker(
@@ -163,6 +268,7 @@ class _AttendancePageState extends State<AttendancePage> {
                         _dateRange = tempRange;
                       });
                       Navigator.of(context).pop();
+                      _loadData();
                     },
                     child: const Text('Aplicar'),
                   ),
@@ -177,16 +283,30 @@ class _AttendancePageState extends State<AttendancePage> {
 
   void _exportAttendance(List<Attendance> attendance) {
     final rows = attendance.map((record) {
-      final member = kMembers.firstWhere((m) => m.id == record.memberId);
+      final member = _members.firstWhere(
+        (m) => m.id == record.memberId,
+        orElse: () => Member(
+          id: record.memberId,
+          name: 'Desconocido',
+          email: '',
+          phone: '',
+          joinDate: DateTime.now().toIso8601String(),
+          status: '',
+          planId: '',
+          displayId: '',
+          createdAt: DateTime.now().toIso8601String(),
+          updatedAt: DateTime.now().toIso8601String(),
+        ),
+      );
       return [
         record.id,
         member.name,
         DateFormatter.formatDateTime(record.checkInTime),
         record.checkOutTime != null
             ? DateFormatter.formatDateTime(record.checkOutTime!)
-            : '—',
+            : '-',
         record.status,
-      ];
+      ].map((e) => e ?? '').toList();
     }).toList();
 
     DataExporter.copyAsCsv(
@@ -230,7 +350,7 @@ class _AttendancePageState extends State<AttendancePage> {
                     Icon(Icons.qr_code_scanner,
                         size: 72, color: Theme.of(context).colorScheme.primary),
                     const SizedBox(height: 12),
-                    const Text('Apunta el código QR al marco'),
+                    const Text('Apunta el codigo QR al marco'),
                   ],
                 ),
               ),
@@ -239,7 +359,7 @@ class _AttendancePageState extends State<AttendancePage> {
             TextField(
               controller: _qrController,
               decoration: const InputDecoration(
-                labelText: 'Código manual (ID de socio)',
+                labelText: 'Codigo manual (ID de socio)',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.edit),
               ),
@@ -248,9 +368,9 @@ class _AttendancePageState extends State<AttendancePage> {
             FilledButton.icon(
               onPressed: () {
                 final code = _qrController.text.trim();
-                if (code.isEmpty || !kMembers.any((m) => m.id == code)) {
+                if (code.isEmpty || !_members.any((m) => m.id == code)) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Código inválido')),
+                    const SnackBar(content: Text('Codigo invalido')),
                   );
                   return;
                 }
@@ -266,9 +386,16 @@ class _AttendancePageState extends State<AttendancePage> {
     );
   }
 
-  String _generateAttendanceId() {
-    final next = _attendances.length + 1;
-    return 'A${next.toString().padLeft(3, '0')}';
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.green),
+    );
   }
 
   @override
@@ -276,11 +403,24 @@ class _AttendancePageState extends State<AttendancePage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    // Preparar datos para la tabla
     final columns = ['ID', 'Socio', 'Entrada', 'Salida', 'Estado'];
     final attendanceRecords = _filteredAttendance;
     final rows = attendanceRecords.map((attendance) {
-      final member = kMembers.firstWhere((m) => m.id == attendance.memberId);
+      final member = _members.firstWhere(
+        (m) => m.id == attendance.memberId,
+        orElse: () => Member(
+          id: attendance.memberId,
+          name: 'Desconocido',
+          email: '',
+          phone: '',
+          joinDate: DateTime.now().toIso8601String(),
+          status: '',
+          planId: '',
+          displayId: '',
+          createdAt: DateTime.now().toIso8601String(),
+          updatedAt: DateTime.now().toIso8601String(),
+        ),
+      );
       return [
         attendance.id,
         member.name,
@@ -289,7 +429,7 @@ class _AttendancePageState extends State<AttendancePage> {
             ? DateFormatter.formatTime(attendance.checkOutTime!)
             : 'En curso',
         attendance.status,
-      ];
+      ].map((e) => e ?? '').toList();
     }).toList();
 
     return AppScaffold(
@@ -301,150 +441,146 @@ class _AttendancePageState extends State<AttendancePage> {
           onPressed: _openQrScanner,
         ),
       ],
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Check-in Section
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Registro de Asistencia',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Registro de Asistencia',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  value: _selectedMemberId,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Seleccionar Socio',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: _members
+                                      .map((member) => DropdownMenuItem(
+                                            value: member.id,
+                                            child: Text(member.name),
+                                          ))
+                                      .toList(),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedMemberId = value;
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              FilledButton.icon(
+                                onPressed: () => _checkIn(),
+                                icon: const Icon(Icons.login),
+                                label: const Text('Check-in'),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            // ignore: deprecated_member_use
-                            value: _selectedMember,
-                            decoration: const InputDecoration(
-                              labelText: 'Seleccionar Socio',
-                              border: OutlineInputBorder(),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.access_time_outlined,
+                                  size: 32,
+                                  color: colorScheme.primary,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '${_attendances.length}',
+                                  style: theme.textTheme.headlineMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.primary,
+                                  ),
+                                ),
+                                Text(
+                                  'Registros Hoy',
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ],
                             ),
-                            items: kMembers
-                                .map((member) => DropdownMenuItem(
-                                      value: member.id,
-                                      child: Text(member.name),
-                                    ))
-                                .toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedMember = value!;
-                              });
-                            },
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        FilledButton.icon(
-                          onPressed: () => _checkIn(),
-                          icon: const Icon(Icons.login),
-                          label: const Text('Check-in'),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.person_outline,
+                                  size: 32,
+                                  color: colorScheme.secondary,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '${_attendances.where((a) => a.status == 'En curso').length}',
+                                  style: theme.textTheme.headlineMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.secondary,
+                                  ),
+                                ),
+                                Text(
+                                  'En Gimnasio',
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  DataTableX(
+                    columns: columns,
+                    rows: rows,
+                    searchHint: 'Buscar asistencia...',
+                    onSearchChanged: (value) => setState(() {
+                      _searchQuery = value.toLowerCase();
+                    }),
+                    actions: [
+                      IconButton(
+                        icon: const Icon(Icons.filter_list),
+                        tooltip: 'Filtros',
+                        onPressed: _openFilterSheet,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.download),
+                        tooltip: 'Exportar CSV',
+                        onPressed: () => _exportAttendance(attendanceRecords),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 24),
-
-            // Summary Cards
-            Row(
-              children: [
-                Expanded(
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.access_time_outlined,
-                            size: 32,
-                            color: colorScheme.primary,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${_attendances.length}',
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.primary,
-                            ),
-                          ),
-                          Text(
-                            'Registros Hoy',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.person_outline,
-                            size: 32,
-                            color: colorScheme.secondary,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${_attendances.where((a) => a.status == 'En curso').length}',
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.secondary,
-                            ),
-                          ),
-                          Text(
-                            'En Gimnasio',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Attendance Table
-            DataTableX(
-              columns: columns,
-              rows: rows,
-              searchHint: 'Buscar asistencia...',
-              onSearchChanged: (value) => setState(() {
-                _searchQuery = value.toLowerCase();
-              }),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.filter_list),
-                  tooltip: 'Filtros',
-                  onPressed: _openFilterSheet,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.download),
-                  tooltip: 'Exportar CSV',
-                  onPressed: () => _exportAttendance(attendanceRecords),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

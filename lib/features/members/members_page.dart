@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import '../../core/models/member.dart';
+import '../../core/models/plan.dart';
+import '../../core/services/members_service.dart';
+import '../../core/services/plans_service.dart';
+import '../../core/services/http_service.dart';
 import '../../core/utils/dates.dart';
-import '../../core/utils/dummy_data.dart';
 import '../../core/utils/export_utils.dart';
 import '../../core/widgets/app_scaffold.dart';
-import '../../core/widgets/data_table_x.dart';
-import '../../core/widgets/form_dialog.dart';
+import 'member_detail_page.dart';
 
 class MembersPage extends StatefulWidget {
   const MembersPage({super.key});
@@ -14,16 +17,28 @@ class MembersPage extends StatefulWidget {
 }
 
 class _MembersPageState extends State<MembersPage> {
-  late final List<Member> _members;
+  final _membersService = MembersService();
+  final _plansService = PlansService();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  String _selectedPlan = 'P001';
-  String _selectedStatus = 'Activo';
+
+  List<Member> _members = [];
+  List<Plan> _plans = [];
+  bool _isLoading = false;
   String _searchQuery = '';
   String? _statusFilter;
   String? _planFilter;
   DateTimeRange? _joinDateRange;
+
+  String? _selectedPlanId;
+  String _selectedStatus = 'Activo';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
 
   @override
   void dispose() {
@@ -33,133 +48,317 @@ class _MembersPageState extends State<MembersPage> {
     super.dispose();
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _members = List<Member>.from(kMembers);
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final membersResponse = await _membersService.getMembers(
+        page: 1,
+        limit: 1000,
+        search: _searchQuery.isNotEmpty ? _searchQuery : null,
+        status: _statusFilter,
+        planId: _planFilter,
+        fromDate: _joinDateRange?.start.toIso8601String(),
+        toDate: _joinDateRange?.end.toIso8601String(),
+      );
+
+      final plansResponse = await _plansService.getPlans(
+        page: 1,
+        limit: 100,
+      );
+
+      if (mounted) {
+        setState(() {
+          _members = membersResponse.data ?? [];
+          _plans = plansResponse.data ?? [];
+          _isLoading = false;
+        });
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showError('Error al cargar datos: ${e.message}');
+      }
+    }
   }
 
-  void _showAddMemberDialog() {
-    _nameController.clear();
-    _emailController.clear();
-    _phoneController.clear();
-    _selectedPlan = 'P001';
-    _selectedStatus = 'Activo';
+  Future<void> _createMember() async {
+    if (_nameController.text.trim().isEmpty) {
+      _showError('Por favor ingresa el nombre');
+      return;
+    }
+
+    if (_emailController.text.trim().isEmpty) {
+      _showError('Por favor ingresa el correo');
+      return;
+    }
+
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+        .hasMatch(_emailController.text.trim())) {
+      _showError('Por favor ingresa un correo valido');
+      return;
+    }
+
+    if (_phoneController.text.trim().isEmpty) {
+      _showError('Por favor ingresa el telefono');
+      return;
+    }
+
+    try {
+      await _membersService.createMember(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
+        status: _selectedStatus,
+        planId: _selectedPlanId,
+      );
+
+      _showSuccess('Socio agregado exitosamente');
+      if (mounted) {
+        Navigator.of(context).pop();
+        _loadData();
+      }
+    } on ApiException catch (e) {
+      _showError('Error al crear socio: ${e.message}');
+    }
+  }
+
+  Future<void> _updateMember(Member member) async {
+    if (_nameController.text.trim().isEmpty) {
+      _showError('Por favor ingresa el nombre');
+      return;
+    }
+
+    if (_emailController.text.trim().isEmpty) {
+      _showError('Por favor ingresa el correo');
+      return;
+    }
+
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+        .hasMatch(_emailController.text.trim())) {
+      _showError('Por favor ingresa un correo valido');
+      return;
+    }
+
+    if (_phoneController.text.trim().isEmpty) {
+      _showError('Por favor ingresa el telefono');
+      return;
+    }
+
+    try {
+      await _membersService.updateMember(
+        member.id,
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
+        status: _selectedStatus,
+        planId: _selectedPlanId,
+      );
+
+      _showSuccess('Socio actualizado exitosamente');
+      if (mounted) {
+        Navigator.of(context).pop();
+        _loadData();
+      }
+    } on ApiException catch (e) {
+      _showError('Error al actualizar socio: ${e.message}');
+    }
+  }
+
+  Future<void> _toggleMemberStatus(Member member) async {
+    final newStatus = member.status == 'Activo' ? 'Inactivo' : 'Activo';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(member.status == 'Activo'
+            ? 'Dar de baja socio'
+            : 'Reactivar socio'),
+        content: Text(member.status == 'Activo'
+            ? '¿Estás seguro de dar de baja a ${member.name}? El socio ya no podrá acceder al gimnasio.'
+            : '¿Estás seguro de reactivar a ${member.name}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: member.status == 'Activo' ? Colors.red : Colors.green,
+            ),
+            child: Text(member.status == 'Activo' ? 'Dar de baja' : 'Reactivar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _membersService.updateMember(
+        member.id,
+        status: newStatus,
+      );
+      _showSuccess(member.status == 'Activo'
+          ? 'Socio dado de baja exitosamente'
+          : 'Socio reactivado exitosamente');
+      _loadData();
+    } on ApiException catch (e) {
+      _showError('Error al cambiar estado: ${e.message}');
+    }
+  }
+
+  Future<void> _deleteMember(Member member) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar eliminacion'),
+        content: Text(
+            '¿Eliminar permanentemente el socio ${member.name}?\n\nEsta acción no se puede deshacer y se eliminarán todos los datos asociados.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Eliminar permanentemente'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _membersService.deleteMember(member.id);
+      _showSuccess('Socio eliminado');
+      _loadData();
+    } on ApiException catch (e) {
+      _showError('Error al eliminar: ${e.message}');
+    }
+  }
+
+  Future<void> _openMemberDetail(Member member) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MemberDetailPage(memberId: member.id),
+      ),
+    );
+
+    if (result == 'refresh') {
+      // El usuario quiere editar desde la página de detalles
+      _showAddMemberDialog(member: member);
+    }
+  }
+
+  void _showAddMemberDialog({Member? member}) {
+    if (member == null) {
+      _nameController.clear();
+      _emailController.clear();
+      _phoneController.clear();
+      // Usar el filtro de plan si está seleccionado, si no, usar el primer plan
+      _selectedPlanId = _planFilter ?? (_plans.isNotEmpty ? _plans.first.id : null);
+      _selectedStatus = 'Activo';
+    } else {
+      _nameController.text = member.name;
+      _emailController.text = member.email;
+      _phoneController.text = member.phone ?? '';
+      _selectedPlanId = member.planId;
+      _selectedStatus = member.status;
+    }
 
     showDialog(
       context: context,
-      builder: (context) => FormDialog(
-        title: 'Agregar Nuevo Socio',
-        fields: [
-          TextFormField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: 'Nombre completo',
-              border: OutlineInputBorder(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(member == null ? 'Agregar Nuevo Socio' : 'Editar Socio'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre completo',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Correo electronico',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Telefono',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedPlanId,
+                  decoration: const InputDecoration(
+                    labelText: 'Plan',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _plans
+                      .map((plan) => DropdownMenuItem(
+                            value: plan.id,
+                            child: Text('${plan.name} - ${plan.price}'),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    setDialogState(() => _selectedPlanId = value);
+                  },
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedStatus,
+                  decoration: const InputDecoration(
+                    labelText: 'Estado',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Activo', child: Text('Activo')),
+                    DropdownMenuItem(value: 'Inactivo', child: Text('Inactivo')),
+                    DropdownMenuItem(
+                        value: 'Suspendido', child: Text('Suspendido')),
+                  ],
+                  onChanged: (value) {
+                    setDialogState(() => _selectedStatus = value!);
+                  },
+                ),
+              ],
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Por favor ingresa el nombre';
-              }
-              return null;
-            },
           ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Correo electrónico',
-              border: OutlineInputBorder(),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Por favor ingresa el correo';
-              }
-              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                  .hasMatch(value)) {
-                return 'Por favor ingresa un correo válido';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'Teléfono',
-              border: OutlineInputBorder(),
+            FilledButton(
+              onPressed: () {
+                if (member == null) {
+                  _createMember();
+                } else {
+                  _updateMember(member);
+                }
+              },
+              child: const Text('Guardar'),
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Por favor ingresa el teléfono';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            // ignore: deprecated_member_use
-            value: _selectedPlan,
-            decoration: const InputDecoration(
-              labelText: 'Plan',
-              border: OutlineInputBorder(),
-            ),
-            items: kPlans
-                .map((plan) => DropdownMenuItem(
-                      value: plan.id,
-                      child: Text('${plan.name} - ${plan.price}'),
-                    ))
-                .toList(),
-            onChanged: (value) {
-              setState(() {
-                _selectedPlan = value!;
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            // ignore: deprecated_member_use
-            value: _selectedStatus,
-            decoration: const InputDecoration(
-              labelText: 'Estado',
-              border: OutlineInputBorder(),
-            ),
-            items: const [
-              DropdownMenuItem(value: 'Activo', child: Text('Activo')),
-              DropdownMenuItem(value: 'Inactivo', child: Text('Inactivo')),
-              DropdownMenuItem(value: 'Suspendido', child: Text('Suspendido')),
-            ],
-            onChanged: (value) {
-              setState(() {
-                _selectedStatus = value!;
-              });
-            },
-          ),
-        ],
-        onSave: () {
-          final member = Member(
-            id: _generateMemberId(),
-            name: _nameController.text.trim(),
-            email: _emailController.text.trim(),
-            phone: _phoneController.text.trim(),
-            joinDate: DateTime.now(),
-            status: _selectedStatus,
-            planId: _selectedPlan,
-          );
-
-          setState(() {
-            _members.add(member);
-          });
-
-          if (mounted) {
-            Navigator.of(context).pop();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Socio ${member.name} agregado')),
-            );
-          }
-        },
+          ],
+        ),
       ),
     );
   }
@@ -169,16 +368,8 @@ class _MembersPageState extends State<MembersPage> {
       final matchesSearch = _searchQuery.isEmpty ||
           member.name.toLowerCase().contains(_searchQuery) ||
           member.email.toLowerCase().contains(_searchQuery) ||
-          member.phone.toLowerCase().contains(_searchQuery);
-      final matchesStatus =
-          _statusFilter == null || member.status == _statusFilter;
-      final matchesPlan = _planFilter == null || member.planId == _planFilter;
-      final matchesDate = _joinDateRange == null ||
-          (member.joinDate.isAfter(
-                  _joinDateRange!.start.subtract(const Duration(days: 1))) &&
-              member.joinDate
-                  .isBefore(_joinDateRange!.end.add(const Duration(days: 1))));
-      return matchesSearch && matchesStatus && matchesPlan && matchesDate;
+          member.phone?.toLowerCase().contains(_searchQuery) == true;
+      return matchesSearch;
     }).toList();
   }
 
@@ -213,7 +404,6 @@ class _MembersPageState extends State<MembersPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String?>(
-                  // ignore: deprecated_member_use
                   value: tempStatus,
                   decoration: const InputDecoration(
                     labelText: 'Estado',
@@ -222,8 +412,7 @@ class _MembersPageState extends State<MembersPage> {
                   items: const [
                     DropdownMenuItem(value: null, child: Text('Todos')),
                     DropdownMenuItem(value: 'Activo', child: Text('Activo')),
-                    DropdownMenuItem(
-                        value: 'Inactivo', child: Text('Inactivo')),
+                    DropdownMenuItem(value: 'Inactivo', child: Text('Inactivo')),
                     DropdownMenuItem(
                         value: 'Suspendido', child: Text('Suspendido')),
                   ],
@@ -231,7 +420,6 @@ class _MembersPageState extends State<MembersPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String?>(
-                  // ignore: deprecated_member_use
                   value: tempPlan,
                   decoration: const InputDecoration(
                     labelText: 'Plan',
@@ -239,7 +427,7 @@ class _MembersPageState extends State<MembersPage> {
                   ),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('Todos')),
-                    ...kPlans.map((plan) => DropdownMenuItem(
+                    ..._plans.map((plan) => DropdownMenuItem(
                           value: plan.id,
                           child: Text(plan.name),
                         )),
@@ -254,7 +442,7 @@ class _MembersPageState extends State<MembersPage> {
                   subtitle: Text(
                     tempRange == null
                         ? 'Sin filtro'
-                        : '${DateFormatter.formatDate(tempRange!.start)} — ${DateFormatter.formatDate(tempRange!.end)}',
+                        : '${DateFormatter.formatDate(tempRange!.start)} - ${DateFormatter.formatDate(tempRange!.end)}',
                   ),
                   onTap: () async {
                     final range = await showDateRangePicker(
@@ -297,6 +485,7 @@ class _MembersPageState extends State<MembersPage> {
                           _joinDateRange = tempRange;
                         });
                         Navigator.of(context).pop();
+                        _loadData();
                       },
                       child: const Text('Aplicar'),
                     ),
@@ -312,16 +501,29 @@ class _MembersPageState extends State<MembersPage> {
 
   void _exportMembers(List<Member> members) {
     final rows = members.map((member) {
-      final plan = kPlans.firstWhere((p) => p.id == member.planId);
+      final plan = _plans.firstWhere(
+        (p) => p.id == member.planId,
+        orElse: () => Plan(
+          id: member.planId ?? '',
+          name: 'Desconocido',
+          description: '',
+          price: 0,
+          durationDays: 0,
+          features: [],
+          displayId: '',
+          createdAt: DateTime.now().toIso8601String(),
+          updatedAt: DateTime.now().toIso8601String(),
+        ),
+      );
       return [
         member.id,
         member.name,
         member.email,
-        member.phone,
+        member.phone ?? '',
         DateFormatter.formatDate(member.joinDate),
         member.status,
         plan.name,
-      ];
+      ].map((e) => e ?? '').toList();
     }).toList();
 
     DataExporter.copyAsCsv(
@@ -331,7 +533,7 @@ class _MembersPageState extends State<MembersPage> {
         'ID',
         'Nombre',
         'Correo',
-        'Teléfono',
+        'Telefono',
         'Fecha ingreso',
         'Estado',
         'Plan'
@@ -340,9 +542,16 @@ class _MembersPageState extends State<MembersPage> {
     );
   }
 
-  String _generateMemberId() {
-    final next = _members.length + 1;
-    return 'M${next.toString().padLeft(3, '0')}';
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.green),
+    );
   }
 
   @override
@@ -350,32 +559,10 @@ class _MembersPageState extends State<MembersPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    // Preparar datos para la tabla
-    final columns = [
-      'ID',
-      'Nombre',
-      'Email',
-      'Teléfono',
-      'Fecha Ingreso',
-      'Estado',
-      'Plan'
-    ];
     final members = _filteredMembers;
-    final rows = members.map((member) {
-      final plan = kPlans.firstWhere((p) => p.id == member.planId);
-      return [
-        member.id,
-        member.name,
-        member.email,
-        member.phone,
-        DateFormatter.formatDate(member.joinDate),
-        member.status,
-        plan.name,
-      ];
-    }).toList();
 
     return AppScaffold(
-      title: 'Gestión de Socios',
+      title: 'Gestion de Socios',
       actions: [
         IconButton(
           icon: const Icon(Icons.add),
@@ -386,99 +573,247 @@ class _MembersPageState extends State<MembersPage> {
         onPressed: _showAddMemberDialog,
         child: const Icon(Icons.add),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Summary Cards
-            Row(
-              children: [
-                Expanded(
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.people_outlined,
-                            size: 32,
-                            color: colorScheme.primary,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${_members.length}',
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.primary,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.people_outlined,
+                                  size: 32,
+                                  color: colorScheme.primary,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '${_members.length}',
+                                  style: theme.textTheme.headlineMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.primary,
+                                  ),
+                                ),
+                                Text(
+                                  'Total Socios',
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            'Total Socios',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.person_outlined,
-                            size: 32,
-                            color: colorScheme.secondary,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${_members.where((m) => m.status == 'Activo').length}',
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.secondary,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.person_outlined,
+                                  size: 32,
+                                  color: colorScheme.secondary,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '${_members.where((m) => m.status == 'Activo').length}',
+                                  style: theme.textTheme.headlineMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.secondary,
+                                  ),
+                                ),
+                                Text(
+                                  'Socios Activos',
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            'Socios Activos',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
+                  const SizedBox(height: 24),
+                  Card(
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  decoration: InputDecoration(
+                                    hintText: 'Buscar socios por nombre, email o teléfono...',
+                                    prefixIcon: const Icon(Icons.search),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    filled: true,
+                                  ),
+                                  onChanged: (value) => setState(() {
+                                    _searchQuery = value.toLowerCase();
+                                  }),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.filter_list),
+                                tooltip: 'Abrir filtros',
+                                onPressed: _openFilterSheet,
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.download),
+                                tooltip: 'Exportar CSV',
+                                onPressed: () => _exportMembers(members),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: members.length,
+                          itemBuilder: (context, index) {
+                            final member = members[index];
+                            final plan = _plans.firstWhere(
+                              (p) => p.id == member.planId,
+                              orElse: () => Plan(
+                                id: member.planId ?? '',
+                                name: 'Sin plan',
+                                description: '',
+                                price: 0,
+                                durationDays: 0,
+                                features: [],
+                                displayId: '',
+                                createdAt: DateTime.now().toIso8601String(),
+                                updatedAt: DateTime.now().toIso8601String(),
+                              ),
+                            );
 
-            // Members Table
-            DataTableX(
-              columns: columns,
-              rows: rows,
-              searchHint: 'Buscar socios...',
-              onSearchChanged: (value) => setState(() {
-                _searchQuery = value.toLowerCase();
-              }),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.filter_list),
-                  tooltip: 'Abrir filtros',
-                  onPressed: _openFilterSheet,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.download),
-                  tooltip: 'Exportar CSV',
-                  onPressed: () => _exportMembers(members),
-                ),
-              ],
+                            Color statusColor;
+                            switch (member.status) {
+                              case 'Activo':
+                                statusColor = Colors.green;
+                                break;
+                              case 'Inactivo':
+                                statusColor = Colors.red;
+                                break;
+                              case 'Suspendido':
+                                statusColor = Colors.orange;
+                                break;
+                              default:
+                                statusColor = Colors.grey;
+                            }
+
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: statusColor.withOpacity(0.2),
+                                child: Text(
+                                  member.name.substring(0, 1).toUpperCase(),
+                                  style: TextStyle(
+                                    color: statusColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      member.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: statusColor.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: statusColor),
+                                    ),
+                                    child: Text(
+                                      member.status,
+                                      style: TextStyle(
+                                        color: statusColor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 4),
+                                  Text('Email: ${member.email}'),
+                                  Text('Teléfono: ${member.phone ?? 'No proporcionado'}'),
+                                  Text('Plan: ${plan.name}'),
+                                  Text('Ingreso: ${DateFormatter.formatDate(member.joinDate)}'),
+                                ],
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.visibility),
+                                    tooltip: 'Ver detalles',
+                                    onPressed: () => _openMemberDetail(member),
+                                    color: colorScheme.primary,
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.edit),
+                                    tooltip: 'Editar',
+                                    onPressed: () => _showAddMemberDialog(member: member),
+                                    color: Colors.blue,
+                                  ),
+                                  IconButton(
+                                    icon: Icon(
+                                      member.status == 'Activo'
+                                          ? Icons.person_remove
+                                          : Icons.person_add,
+                                    ),
+                                    tooltip: member.status == 'Activo'
+                                        ? 'Dar de baja'
+                                        : 'Reactivar',
+                                    onPressed: () => _toggleMemberStatus(member),
+                                    color: member.status == 'Activo'
+                                        ? Colors.orange
+                                        : Colors.green,
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete),
+                                    tooltip: 'Eliminar permanentemente',
+                                    onPressed: () => _deleteMember(member),
+                                    color: Colors.red,
+                                  ),
+                                ],
+                              ),
+                              isThreeLine: true,
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
     );
   }
 }

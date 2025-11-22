@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../services/auth_service.dart';
+import '../models/user.dart';
 
-class AppScaffold extends StatelessWidget {
+class AppScaffold extends StatefulWidget {
   final String title;
   final Widget body;
   final List<Widget>? actions;
@@ -16,13 +18,74 @@ class AppScaffold extends StatelessWidget {
   });
 
   @override
+  State<AppScaffold> createState() => _AppScaffoldState();
+}
+
+class _AppScaffoldState extends State<AppScaffold> {
+  final _authService = AuthService();
+  User? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUser();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final user = await _authService.getCurrentUser();
+    if (mounted) {
+      setState(() {
+        _currentUser = user;
+      });
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cerrar Sesión'),
+        content: const Text('¿Estás seguro de que quieres cerrar sesión?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Cerrar Sesión'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _authService.logout();
+      if (mounted) {
+        context.go('/login');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error al cerrar sesión'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
+        title: Text(widget.title),
         backgroundColor: colorScheme.surfaceContainerHighest,
         foregroundColor: colorScheme.onSurface,
         elevation: 0,
@@ -34,10 +97,10 @@ class AppScaffold extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.account_circle_outlined),
-            onPressed: () => _showProfileMenu(context),
+            onPressed: () => _showProfileMenu(context, _currentUser, _handleLogout),
             tooltip: 'Perfil',
           ),
-          if (actions != null) ...actions!,
+          if (widget.actions != null) ...widget.actions!,
         ],
       ),
       drawer: Drawer(
@@ -144,14 +207,14 @@ class AppScaffold extends StatelessWidget {
               title: const Text('Cerrar Sesión'),
               onTap: () {
                 Navigator.pop(context);
-                context.go('/login');
+                _handleLogout();
               },
             ),
           ],
         ),
       ),
-      body: body,
-      floatingActionButton: floatingActionButton,
+      body: widget.body,
+      floatingActionButton: widget.floatingActionButton,
     );
   }
 }
@@ -225,7 +288,7 @@ void _showNotifications(BuildContext context, ColorScheme colorScheme) {
   );
 }
 
-void _showProfileMenu(BuildContext context) {
+void _showProfileMenu(BuildContext context, User? currentUser, Future<void> Function() onLogout) {
   showModalBottomSheet(
     context: context,
     showDragHandle: true,
@@ -234,21 +297,32 @@ void _showProfileMenu(BuildContext context) {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 36,
-            child: Icon(Icons.account_circle, size: 48),
+            child: Text(
+              currentUser?.name.substring(0, 1).toUpperCase() ?? 'U',
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+            ),
           ),
           const SizedBox(height: 12),
           Text(
-            'Administrador General',
+            currentUser?.name ?? 'Usuario',
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
                 ?.copyWith(fontWeight: FontWeight.bold),
           ),
           Text(
-            'admin@gimnasio.com',
+            currentUser?.email ?? 'Usuario',
             style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          Chip(
+            label: Text(
+              currentUser?.role.toUpperCase() ?? 'STAFF',
+              style: const TextStyle(fontSize: 11),
+            ),
+            visualDensity: VisualDensity.compact,
           ),
           const SizedBox(height: 16),
           ListTile(
@@ -264,7 +338,7 @@ void _showProfileMenu(BuildContext context) {
             title: const Text('Cerrar sesión'),
             onTap: () {
               Navigator.of(context).pop();
-              context.go('/login');
+              onLogout();
             },
           ),
         ],

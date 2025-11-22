@@ -5,7 +5,7 @@ import '../features/members/members_page.dart';
 import '../features/plans/plans_page.dart';
 import '../features/subscriptions/subscriptions_page.dart';
 import '../features/payments/payments_page.dart';
-import '../features/attendance/attendance_page.dart';
+import '../features/attendance/attendance_page_new.dart';
 import '../features/reports/reports_page.dart';
 import '../features/settings/settings_page.dart';
 
@@ -45,7 +45,7 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/attendance',
       name: 'attendance',
-      builder: (context, state) => const AttendancePage(),
+      builder: (context, state) => const AttendancePageNew(),
     ),
     GoRoute(
       path: '/reports',

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
+import '../../core/models/payment.dart';
+import '../../core/models/member.dart';
+import '../../core/models/subscription.dart';
+import '../../core/services/payments_service.dart';
+import '../../core/services/members_service.dart';
+import '../../core/services/subscriptions_service.dart';
+import '../../core/services/http_service.dart';
 import '../../core/utils/dates.dart';
-import '../../core/utils/dummy_data.dart';
 import '../../core/utils/export_utils.dart';
 import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/data_table_x.dart';
-import '../../core/widgets/form_dialog.dart';
 
 class PaymentsPage extends StatefulWidget {
   const PaymentsPage({super.key});
@@ -16,22 +20,30 @@ class PaymentsPage extends StatefulWidget {
 }
 
 class _PaymentsPageState extends State<PaymentsPage> {
-  late final List<Payment> _payments;
-  String _selectedMember = 'M001';
-  String _selectedSubscription = 'S001';
+  final _paymentsService = PaymentsService();
+  final _membersService = MembersService();
+  final _subscriptionsService = SubscriptionsService();
   final _amountController = TextEditingController();
-  String _selectedMethod = 'Efectivo';
-  DateTime _paymentDate = DateTime.now();
+
+  List<Payment> _payments = [];
+  List<Member> _members = [];
+  List<Subscription> _subscriptions = [];
+  bool _isLoading = false;
   String _searchQuery = '';
   String? _memberFilter;
   String? _methodFilter;
   String? _statusFilter;
   DateTimeRange? _dateRange;
 
+  String? _selectedMemberId;
+  String? _selectedSubscriptionId;
+  String _selectedMethod = 'Efectivo';
+  DateTime _paymentDate = DateTime.now();
+
   @override
   void initState() {
     super.initState();
-    _payments = List<Payment>.from(kPayments);
+    _loadData();
   }
 
   @override
@@ -40,174 +52,260 @@ class _PaymentsPageState extends State<PaymentsPage> {
     super.dispose();
   }
 
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final paymentsResponse = await _paymentsService.getPayments(
+        page: 1,
+        limit: 100,
+        memberId: _memberFilter,
+        method: _methodFilter,
+        status: _statusFilter,
+        fromDate: _dateRange?.start.toIso8601String(),
+        toDate: _dateRange?.end.toIso8601String(),
+      );
+
+      final membersResponse = await _membersService.getMembers(
+        page: 1,
+        limit: 1000,
+      );
+
+      final subscriptionsResponse = await _subscriptionsService.getSubscriptions(
+        page: 1,
+        limit: 1000,
+      );
+
+      if (mounted) {
+        setState(() {
+          _payments = paymentsResponse.data ?? [];
+          _members = membersResponse.data ?? [];
+          _subscriptions = subscriptionsResponse.data ?? [];
+          _isLoading = false;
+        });
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showError('Error al cargar datos: ${e.message}');
+      }
+    }
+  }
+
+  Future<void> _createPayment() async {
+    if (_selectedMemberId == null || _selectedSubscriptionId == null) {
+      _showError('Por favor selecciona un socio y una suscripcion');
+      return;
+    }
+
+    final amount = double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0;
+    if (amount <= 0) {
+      _showError('Por favor ingresa un monto valido');
+      return;
+    }
+
+    try {
+      await _paymentsService.createPayment(
+        memberId: _selectedMemberId!,
+        subscriptionId: _selectedSubscriptionId!,
+        amount: amount,
+        paymentDate: _paymentDate.toIso8601String(),
+        method: _selectedMethod,
+        status: 'Completado',
+      );
+
+      _showSuccess('Pago registrado exitosamente');
+      if (mounted) {
+        Navigator.of(context).pop();
+        _loadData();
+      }
+    } on ApiException catch (e) {
+      _showError('Error al crear pago: ${e.message}');
+    }
+  }
+
+  Future<void> _updatePayment(Payment payment, {String? status}) async {
+    try {
+      await _paymentsService.updatePayment(
+        payment.id,
+        status: status,
+      );
+
+      _showSuccess('Pago actualizado');
+      _loadData();
+    } on ApiException catch (e) {
+      _showError('Error al actualizar: ${e.message}');
+    }
+  }
+
+  Future<void> _deletePayment(Payment payment) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar eliminacion'),
+        content: Text('Eliminar el pago ${payment.id}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _paymentsService.deletePayment(payment.id);
+      _showSuccess('Pago eliminado');
+      _loadData();
+    } on ApiException catch (e) {
+      _showError('Error al eliminar: ${e.message}');
+    }
+  }
+
   void _showAddPaymentDialog() {
-    _selectedMember = 'M001';
-    _selectedSubscription = 'S001';
+    _selectedMemberId = _members.isNotEmpty ? _members.first.id : null;
+    _selectedSubscriptionId = _subscriptions.isNotEmpty ? _subscriptions.first.id : null;
     _amountController.clear();
     _selectedMethod = 'Efectivo';
     _paymentDate = DateTime.now();
 
     showDialog(
       context: context,
-      builder: (context) => FormDialog(
-        title: 'Registrar Pago',
-        fields: [
-          DropdownButtonFormField<String>(
-            // ignore: deprecated_member_use
-            value: _selectedMember,
-            decoration: const InputDecoration(
-              labelText: 'Socio',
-              border: OutlineInputBorder(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Registrar Pago'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: _selectedMemberId,
+                  decoration: const InputDecoration(
+                    labelText: 'Socio',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _members
+                      .map((member) => DropdownMenuItem(
+                            value: member.id,
+                            child: Text(member.name),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    setDialogState(() => _selectedMemberId = value);
+                  },
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedSubscriptionId,
+                  decoration: const InputDecoration(
+                    labelText: 'Suscripcion',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _subscriptions.map((subscription) {
+                    final member = _members.firstWhere(
+                      (m) => m.id == subscription.memberId,
+                      orElse: () => Member(
+                        id: subscription.memberId,
+                        name: 'Desconocido',
+                        email: '',
+                        phone: '',
+                        joinDate: DateTime.now().toIso8601String(),
+                        status: '',
+                        planId: '',
+                        displayId: '',
+                        createdAt: DateTime.now().toIso8601String(),
+                        updatedAt: DateTime.now().toIso8601String(),
+                      ),
+                    );
+                    return DropdownMenuItem(
+                      value: subscription.id,
+                      child: Text(
+                          '${member.name} - ${MoneyFormatter.format(subscription.amount)}'),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setDialogState(() => _selectedSubscriptionId = value);
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Monto',
+                    border: OutlineInputBorder(),
+                    prefixText: '\$ ',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedMethod,
+                  decoration: const InputDecoration(
+                    labelText: 'Metodo de pago',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'Efectivo', child: Text('Efectivo')),
+                    DropdownMenuItem(value: 'Tarjeta', child: Text('Tarjeta')),
+                    DropdownMenuItem(
+                        value: 'Transferencia', child: Text('Transferencia')),
+                  ],
+                  onChanged: (value) {
+                    setDialogState(() => _selectedMethod = value!);
+                  },
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: _paymentDate,
+                      firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                      lastDate: DateTime.now(),
+                    );
+                    if (date != null) {
+                      setDialogState(() => _paymentDate = date);
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Fecha de pago',
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.calendar_today),
+                    ),
+                    child: Text(DateFormatter.formatDate(_paymentDate)),
+                  ),
+                ),
+              ],
             ),
-            items: kMembers
-                .map((member) => DropdownMenuItem(
-                      value: member.id,
-                      child: Text(member.name),
-                    ))
-                .toList(),
-            onChanged: (value) {
-              setState(() {
-                _selectedMember = value!;
-              });
-            },
           ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            // ignore: deprecated_member_use
-            value: _selectedSubscription,
-            decoration: const InputDecoration(
-              labelText: 'Suscripción',
-              border: OutlineInputBorder(),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
             ),
-            items: kSubscriptions.map((subscription) {
-              final member =
-                  kMembers.firstWhere((m) => m.id == subscription.memberId);
-              return DropdownMenuItem(
-                value: subscription.id,
-                child: Text(
-                    '${member.name} - ${MoneyFormatter.format(subscription.amount)}'),
-              );
-            }).toList(),
-            onChanged: (value) {
-              setState(() {
-                _selectedSubscription = value!;
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _amountController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Monto',
-              border: OutlineInputBorder(),
-              prefixText: '\$ ',
+            FilledButton(
+              onPressed: _createPayment,
+              child: const Text('Guardar'),
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Por favor ingresa el monto';
-              }
-              if (double.tryParse(value) == null) {
-                return 'Por favor ingresa un monto válido';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            // ignore: deprecated_member_use
-            value: _selectedMethod,
-            decoration: const InputDecoration(
-              labelText: 'Método de pago',
-              border: OutlineInputBorder(),
-            ),
-            items: const [
-              DropdownMenuItem(value: 'Efectivo', child: Text('Efectivo')),
-              DropdownMenuItem(value: 'Tarjeta', child: Text('Tarjeta')),
-              DropdownMenuItem(
-                  value: 'Transferencia', child: Text('Transferencia')),
-            ],
-            onChanged: (value) {
-              setState(() {
-                _selectedMethod = value!;
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-          InkWell(
-            onTap: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: _paymentDate,
-                firstDate: DateTime.now().subtract(const Duration(days: 30)),
-                lastDate: DateTime.now(),
-              );
-              if (date != null) {
-                setState(() {
-                  _paymentDate = date;
-                });
-              }
-            },
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Fecha de pago',
-                border: OutlineInputBorder(),
-                suffixIcon: Icon(Icons.calendar_today),
-              ),
-              child: Text(DateFormatter.formatDate(_paymentDate)),
-            ),
-          ),
-        ],
-        onSave: () {
-          final amount =
-              double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0;
-          final payment = Payment(
-            id: _generatePaymentId(),
-            memberId: _selectedMember,
-            subscriptionId: _selectedSubscription,
-            amount: amount,
-            paymentDate: _paymentDate,
-            method: _selectedMethod,
-            status: 'Completado',
-          );
-
-          setState(() {
-            _payments.add(payment);
-          });
-
-          if (mounted) {
-            Navigator.of(context).pop();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Pago registrado')),
-            );
-          }
-        },
+          ],
+        ),
       ),
     );
   }
 
   List<Payment> get _filteredPayments {
     return _payments.where((payment) {
-      final member = kMembers.firstWhere((m) => m.id == payment.memberId);
       final matchesSearch = _searchQuery.isEmpty ||
-          member.name.toLowerCase().contains(_searchQuery) ||
           payment.id.toLowerCase().contains(_searchQuery);
-      final matchesMember =
-          _memberFilter == null || payment.memberId == _memberFilter;
-      final matchesMethod =
-          _methodFilter == null || payment.method == _methodFilter;
-      final matchesStatus =
-          _statusFilter == null || payment.status == _statusFilter;
-      final matchesDate = _dateRange == null ||
-          (payment.paymentDate.isAfter(
-                  _dateRange!.start.subtract(const Duration(days: 1))) &&
-              payment.paymentDate
-                  .isBefore(_dateRange!.end.add(const Duration(days: 1))));
-      return matchesSearch &&
-          matchesMember &&
-          matchesMethod &&
-          matchesStatus &&
-          matchesDate;
+      return matchesSearch;
     }).toList();
   }
 
@@ -228,7 +326,6 @@ class _PaymentsPageState extends State<PaymentsPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String?>(
-                  // ignore: deprecated_member_use
                   value: tempMember,
                   decoration: const InputDecoration(
                     labelText: 'Socio',
@@ -236,7 +333,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                   ),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('Todos')),
-                    ...kMembers.map(
+                    ..._members.map(
                       (member) => DropdownMenuItem(
                         value: member.id,
                         child: Text(member.name),
@@ -247,16 +344,14 @@ class _PaymentsPageState extends State<PaymentsPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String?>(
-                  // ignore: deprecated_member_use
                   value: tempMethod,
                   decoration: const InputDecoration(
-                    labelText: 'Método de pago',
+                    labelText: 'Metodo de pago',
                     border: OutlineInputBorder(),
                   ),
                   items: const [
                     DropdownMenuItem(value: null, child: Text('Todos')),
-                    DropdownMenuItem(
-                        value: 'Efectivo', child: Text('Efectivo')),
+                    DropdownMenuItem(value: 'Efectivo', child: Text('Efectivo')),
                     DropdownMenuItem(value: 'Tarjeta', child: Text('Tarjeta')),
                     DropdownMenuItem(
                         value: 'Transferencia', child: Text('Transferencia')),
@@ -265,7 +360,6 @@ class _PaymentsPageState extends State<PaymentsPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String?>(
-                  // ignore: deprecated_member_use
                   value: tempStatus,
                   decoration: const InputDecoration(
                     labelText: 'Estado',
@@ -275,8 +369,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                     DropdownMenuItem(value: null, child: Text('Todos')),
                     DropdownMenuItem(
                         value: 'Completado', child: Text('Completado')),
-                    DropdownMenuItem(
-                        value: 'Pendiente', child: Text('Pendiente')),
+                    DropdownMenuItem(value: 'Pendiente', child: Text('Pendiente')),
                     DropdownMenuItem(value: 'Fallido', child: Text('Fallido')),
                   ],
                   onChanged: (value) => setModalState(() => tempStatus = value),
@@ -286,11 +379,11 @@ class _PaymentsPageState extends State<PaymentsPage> {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.date_range),
                   title: const Text('Rango de fechas'),
-                subtitle: Text(
-                  tempRange == null
-                      ? 'Sin filtro'
-                      : '${DateFormatter.formatDate(tempRange!.start)} — ${DateFormatter.formatDate(tempRange!.end)}',
-                ),
+                  subtitle: Text(
+                    tempRange == null
+                        ? 'Sin filtro'
+                        : '${DateFormatter.formatDate(tempRange!.start)} - ${DateFormatter.formatDate(tempRange!.end)}',
+                  ),
                   onTap: () async {
                     final range = await showDateRangePicker(
                       context: context,
@@ -327,6 +420,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                           _dateRange = tempRange;
                         });
                         Navigator.of(context).pop();
+                        _loadData();
                       },
                       child: const Text('Aplicar'),
                     ),
@@ -342,7 +436,21 @@ class _PaymentsPageState extends State<PaymentsPage> {
 
   void _exportPayments(List<Payment> payments) {
     final rows = payments.map((payment) {
-      final member = kMembers.firstWhere((m) => m.id == payment.memberId);
+      final member = _members.firstWhere(
+        (m) => m.id == payment.memberId,
+        orElse: () => Member(
+          id: payment.memberId,
+          name: 'Desconocido',
+          email: '',
+          phone: '',
+          joinDate: DateTime.now().toIso8601String(),
+          status: '',
+          planId: '',
+          displayId: '',
+          createdAt: DateTime.now().toIso8601String(),
+          updatedAt: DateTime.now().toIso8601String(),
+        ),
+      );
       return [
         payment.id,
         member.name,
@@ -351,7 +459,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
         DateFormatter.formatDate(payment.paymentDate),
         payment.method,
         payment.status,
-      ];
+      ].map((e) => e ?? '').toList();
     }).toList();
 
     DataExporter.copyAsCsv(
@@ -360,10 +468,10 @@ class _PaymentsPageState extends State<PaymentsPage> {
       headers: [
         'ID',
         'Socio',
-        'Suscripción',
+        'Suscripcion',
         'Monto',
         'Fecha',
-        'Método',
+        'Metodo',
         'Estado'
       ],
       rows: rows,
@@ -381,7 +489,21 @@ class _PaymentsPageState extends State<PaymentsPage> {
         separatorBuilder: (_, __) => const Divider(),
         itemBuilder: (context, index) {
           final payment = payments[index];
-          final member = kMembers.firstWhere((m) => m.id == payment.memberId);
+          final member = _members.firstWhere(
+            (m) => m.id == payment.memberId,
+            orElse: () => Member(
+              id: payment.memberId,
+              name: 'Desconocido',
+              email: '',
+              phone: '',
+              joinDate: DateTime.now().toIso8601String(),
+              status: '',
+              planId: '',
+              displayId: '',
+              createdAt: DateTime.now().toIso8601String(),
+              updatedAt: DateTime.now().toIso8601String(),
+            ),
+          );
           return ListTile(
             leading: const Icon(Icons.receipt_long),
             title: Text('Recibo ${payment.id}'),
@@ -399,16 +521,12 @@ class _PaymentsPageState extends State<PaymentsPage> {
   }
 
   void _showReceiptDialog(Payment payment, Member member) {
-    final subscription =
-        kSubscriptions.firstWhere((s) => s.id == payment.subscriptionId);
-    final plan = kPlans.firstWhere((p) => p.id == subscription.planId);
     final receipt = '''
 Recibo: ${payment.id}
 Socio: ${member.name}
-Plan: ${plan.name}
 Monto: ${MoneyFormatter.format(payment.amount)}
 Fecha: ${DateFormatter.formatDate(payment.paymentDate)}
-Método: ${payment.method}
+Metodo: ${payment.method}
 Estado: ${payment.status}
 ''';
 
@@ -440,9 +558,16 @@ Estado: ${payment.status}
     );
   }
 
-  String _generatePaymentId() {
-    final next = _payments.length + 1;
-    return 'PAY${next.toString().padLeft(3, '0')}';
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.green),
+    );
   }
 
   @override
@@ -453,15 +578,29 @@ Estado: ${payment.status}
     final columns = [
       'ID',
       'Socio',
-      'Suscripción',
+      'Suscripcion',
       'Monto',
       'Fecha',
-      'Método',
+      'Metodo',
       'Estado'
     ];
     final payments = _filteredPayments;
     final rows = payments.map((payment) {
-      final member = kMembers.firstWhere((m) => m.id == payment.memberId);
+      final member = _members.firstWhere(
+        (m) => m.id == payment.memberId,
+        orElse: () => Member(
+          id: payment.memberId,
+          name: 'Desconocido',
+          email: '',
+          phone: '',
+          joinDate: DateTime.now().toIso8601String(),
+          status: '',
+          planId: '',
+          displayId: '',
+          createdAt: DateTime.now().toIso8601String(),
+          updatedAt: DateTime.now().toIso8601String(),
+        ),
+      );
       return [
         payment.id,
         member.name,
@@ -470,7 +609,7 @@ Estado: ${payment.status}
         DateFormatter.formatDate(payment.paymentDate),
         payment.method,
         payment.status,
-      ];
+      ].map((e) => e ?? '').toList();
     }).toList();
 
     return AppScaffold(
@@ -490,99 +629,101 @@ Estado: ${payment.status}
         onPressed: _showAddPaymentDialog,
         child: const Icon(Icons.add),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.payment_outlined,
-                            size: 32,
-                            color: colorScheme.primary,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${_payments.length}',
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.primary,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.payment_outlined,
+                                  size: 32,
+                                  color: colorScheme.primary,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '${_payments.length}',
+                                  style: theme.textTheme.headlineMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.primary,
+                                  ),
+                                ),
+                                Text(
+                                  'Pagos Registrados',
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            'Pagos Registrados',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.attach_money_outlined,
-                            size: 32,
-                            color: colorScheme.secondary,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            MoneyFormatter.format(
-                              _payments.fold(
-                                  0.0, (sum, payment) => sum + payment.amount),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.attach_money_outlined,
+                                  size: 32,
+                                  color: colorScheme.secondary,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  MoneyFormatter.format(
+                                    _payments.fold(
+                                        0.0, (sum, payment) => sum + payment.amount),
+                                  ),
+                                  style: theme.textTheme.headlineMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: colorScheme.secondary,
+                                  ),
+                                ),
+                                Text(
+                                  'Total Cobrado',
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ],
                             ),
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colorScheme.secondary,
-                            ),
                           ),
-                          Text(
-                            'Total Cobrado',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 24),
+                  DataTableX(
+                    columns: columns,
+                    rows: rows,
+                    searchHint: 'Buscar pagos...',
+                    onSearchChanged: (value) => setState(() {
+                      _searchQuery = value.toLowerCase();
+                    }),
+                    actions: [
+                      IconButton(
+                        icon: const Icon(Icons.filter_list),
+                        tooltip: 'Filtros',
+                        onPressed: _openFilterSheet,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.download),
+                        tooltip: 'Exportar CSV',
+                        onPressed: () => _exportPayments(payments),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 24),
-            DataTableX(
-              columns: columns,
-              rows: rows,
-              searchHint: 'Buscar pagos...',
-              onSearchChanged: (value) => setState(() {
-                _searchQuery = value.toLowerCase();
-              }),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.filter_list),
-                  tooltip: 'Filtros',
-                  onPressed: _openFilterSheet,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.download),
-                  tooltip: 'Exportar CSV',
-                  onPressed: () => _exportPayments(payments),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
