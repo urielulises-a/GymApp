@@ -425,16 +425,6 @@ cd GymApp
 flutter test
 ```
 
-### QA Completo
-1. ✅ Backend corriendo en `http://localhost:3000`
-2. ✅ Login funciona con credenciales correctas
-3. ✅ Dashboard carga métricas reales
-4. ✅ CRUD funciona en todos los módulos
-5. ✅ Filtros y búsqueda operativos
-6. ✅ Exportación a CSV funciona
-7. ✅ Logout limpia la sesión
-8. ✅ Token persiste entre sesiones
-
 ## Contribución
 
 1. Fork el proyecto
