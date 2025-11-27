@@ -2,10 +2,6 @@
 
 Una aplicación completa para la gestión de gimnasios, desarrollada con Flutter (frontend) y Node.js + Express (backend). Disponible para Web y Android.
 
-## 🎉 Estado: COMPLETAMENTE INTEGRADO ✅
-
-El frontend Flutter está **100% integrado** con el backend Node.js. Todas las funcionalidades están operativas y listas para usar.
-
 ## Características
 
 ### Funcionalidades Completas
