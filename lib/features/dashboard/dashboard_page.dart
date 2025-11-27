@@ -130,59 +130,80 @@ class _DashboardPageState extends State<DashboardPage> {
       body: RefreshIndicator(
         onRefresh: _loadDashboardData,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
+          padding: EdgeInsets.only(
+            left: 16.0,
+            right: 16.0,
+            top: 16.0,
+            bottom: MediaQuery.of(context).padding.bottom + 150.0,
+          ),
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header con saludo
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Bienvenido',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Bienvenido',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            Text(
+                              'Panel de Control',
+                              style: theme.textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurface,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
-                        Text(
-                          'Panel de Control',
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.calendar_today,
-                          size: 16,
-                          color: colorScheme.onPrimaryContainer,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          DateFormatter.formatDate(DateTime.now()),
-                          style: theme.textTheme.labelLarge?.copyWith(
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.calendar_today,
+                            size: 16,
                             color: colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.w600,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              DateFormatter.formatDate(DateTime.now()),
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -195,14 +216,17 @@ class _DashboardPageState extends State<DashboardPage> {
                 subtitle: 'Actividad del día actual',
               ),
               const SizedBox(height: 12),
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: 1.3,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                children: [
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final crossAxisCount = constraints.maxWidth > 600 ? 2 : 2;
+                  return GridView.count(
+                    crossAxisCount: crossAxisCount,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    childAspectRatio: constraints.maxWidth > 600 ? 1.5 : 1.45,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    children: [
                   KpiCard(
                     title: 'Asistencias Hoy',
                     value: '$todayAttendanceCount',
@@ -233,7 +257,9 @@ class _DashboardPageState extends State<DashboardPage> {
                     icon: Icons.group,
                     color: Colors.orange,
                   ),
-                ],
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 32),
 
@@ -243,32 +269,62 @@ class _DashboardPageState extends State<DashboardPage> {
                 subtitle: 'Mes actual vs anterior',
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TrendCard(
-                      title: 'Nuevos Socios',
-                      currentValue: '$currentMonthMembers',
-                      previousValue: '$previousMonthMembers',
-                      trend: membersTrend,
-                      trendPercentage: '$membersTrendPercent%',
-                      icon: Icons.person_add,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TrendCard(
-                      title: 'Ingresos',
-                      currentValue: MoneyFormatter.format(currentMonthRevenue),
-                      previousValue: MoneyFormatter.format(previousMonthRevenue),
-                      trend: revenueTrend,
-                      trendPercentage: '$revenueTrendPercent%',
-                      icon: Icons.attach_money,
-                      color: Colors.green,
-                    ),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth > 600) {
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: TrendCard(
+                            title: 'Nuevos Socios',
+                            currentValue: '$currentMonthMembers',
+                            previousValue: '$previousMonthMembers',
+                            trend: membersTrend,
+                            trendPercentage: '$membersTrendPercent%',
+                            icon: Icons.person_add,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TrendCard(
+                            title: 'Ingresos',
+                            currentValue: MoneyFormatter.format(currentMonthRevenue),
+                            previousValue: MoneyFormatter.format(previousMonthRevenue),
+                            trend: revenueTrend,
+                            trendPercentage: '$revenueTrendPercent%',
+                            icon: Icons.attach_money,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ],
+                    );
+                  } else {
+                    return Column(
+                      children: [
+                        TrendCard(
+                          title: 'Nuevos Socios',
+                          currentValue: '$currentMonthMembers',
+                          previousValue: '$previousMonthMembers',
+                          trend: membersTrend,
+                          trendPercentage: '$membersTrendPercent%',
+                          icon: Icons.person_add,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(height: 12),
+                        TrendCard(
+                          title: 'Ingresos',
+                          currentValue: MoneyFormatter.format(currentMonthRevenue),
+                          previousValue: MoneyFormatter.format(previousMonthRevenue),
+                          trend: revenueTrend,
+                          trendPercentage: '$revenueTrendPercent%',
+                          icon: Icons.attach_money,
+                          color: Colors.green,
+                        ),
+                      ],
+                    );
+                  }
+                },
               ),
               const SizedBox(height: 32),
 
@@ -604,7 +660,10 @@ class _DashboardPageState extends State<DashboardPage> {
                           final payment = recentPayments[index];
                           final memberName =
                               payment['memberName'] ?? 'Sin nombre';
-                          final amount = payment['amount'] ?? 0;
+                          final amountValue = payment['amount'] ?? 0;
+                          final amount = amountValue is int 
+                              ? amountValue.toDouble() 
+                              : (amountValue is double ? amountValue : 0.0);
                           final method = payment['method'] ?? 'N/A';
                           final status = payment['status'] ?? 'N/A';
                           final date = payment['paymentDate'];
@@ -631,48 +690,82 @@ class _DashboardPageState extends State<DashboardPage> {
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             subtitle: Text(
                               '$method${date != null ? ' • ${DateFormatter.formatDate(DateTime.parse(date))}' : ''}',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  MoneyFormatter.format(amount),
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.green,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: status == 'Completado'
-                                        ? Colors.green.withValues(alpha: 0.15)
-                                        : Colors.orange.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    status,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: status == 'Completado'
-                                          ? Colors.green
-                                          : Colors.orange,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            trailing: LayoutBuilder(
+                              builder: (context, constraints) {
+                                if (constraints.maxWidth > 200) {
+                                  return Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          MoneyFormatter.format(amount),
+                                          style: theme.textTheme.titleMedium?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.green,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: status == 'Completado'
+                                              ? Colors.green.withValues(alpha: 0.15)
+                                              : Colors.orange.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          status,
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: status == 'Completado'
+                                                ? Colors.green
+                                                : Colors.orange,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 10,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                } else {
+                                  return Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          MoneyFormatter.format(amount),
+                                          style: theme.textTheme.bodyMedium?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.green,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }
+                              },
                             ),
                           );
                         },

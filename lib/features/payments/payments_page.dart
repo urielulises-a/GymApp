@@ -186,7 +186,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: _selectedMemberId,
+                  initialValue: _selectedMemberId,
                   decoration: const InputDecoration(
                     labelText: 'Socio',
                     border: OutlineInputBorder(),
@@ -203,7 +203,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _selectedSubscriptionId,
+                  initialValue: _selectedSubscriptionId,
                   decoration: const InputDecoration(
                     labelText: 'Suscripcion',
                     border: OutlineInputBorder(),
@@ -246,7 +246,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _selectedMethod,
+                  initialValue: _selectedMethod,
                   decoration: const InputDecoration(
                     labelText: 'Metodo de pago',
                     border: OutlineInputBorder(),
@@ -326,7 +326,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String?>(
-                  value: tempMember,
+                  initialValue: tempMember,
                   decoration: const InputDecoration(
                     labelText: 'Socio',
                     border: OutlineInputBorder(),
@@ -344,7 +344,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String?>(
-                  value: tempMethod,
+                  initialValue: tempMethod,
                   decoration: const InputDecoration(
                     labelText: 'Metodo de pago',
                     border: OutlineInputBorder(),
@@ -360,7 +360,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String?>(
-                  value: tempStatus,
+                  initialValue: tempStatus,
                   decoration: const InputDecoration(
                     labelText: 'Estado',
                     border: OutlineInputBorder(),
@@ -636,69 +636,156 @@ Estado: ${payment.status}
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              children: [
-                                Icon(
-                                  Icons.payment_outlined,
-                                  size: 32,
-                                  color: colorScheme.primary,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '${_payments.length}',
-                                  style: theme.textTheme.headlineMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: colorScheme.primary,
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (constraints.maxWidth > 600) {
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: Card(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        Icons.payment_outlined,
+                                        size: 32,
+                                        color: colorScheme.primary,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '${_payments.length}',
+                                        style: theme.textTheme.headlineMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.primary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        'Pagos Registrados',
+                                        style: theme.textTheme.bodyMedium,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Text(
-                                  'Pagos Registrados',
-                                  style: theme.textTheme.bodyMedium,
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              children: [
-                                Icon(
-                                  Icons.attach_money_outlined,
-                                  size: 32,
-                                  color: colorScheme.secondary,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  MoneyFormatter.format(
-                                    _payments.fold(
-                                        0.0, (sum, payment) => sum + payment.amount),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Card(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        Icons.attach_money_outlined,
+                                        size: 32,
+                                        color: colorScheme.secondary,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        MoneyFormatter.format(
+                                          _payments.fold(
+                                              0.0, (sum, payment) => sum + payment.amount),
+                                        ),
+                                        style: theme.textTheme.headlineMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.secondary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        'Total Cobrado',
+                                        style: theme.textTheme.bodyMedium,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
                                   ),
-                                  style: theme.textTheme.headlineMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: colorScheme.secondary,
-                                  ),
                                 ),
-                                Text(
-                                  'Total Cobrado',
-                                  style: theme.textTheme.bodyMedium,
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
-                    ],
+                          ],
+                        );
+                      } else {
+                        return Column(
+                          children: [
+                            Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.payment_outlined,
+                                      size: 32,
+                                      color: colorScheme.primary,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      '${_payments.length}',
+                                      style: theme.textTheme.headlineMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: colorScheme.primary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      'Pagos Registrados',
+                                      style: theme.textTheme.bodyMedium,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.attach_money_outlined,
+                                      size: 32,
+                                      color: colorScheme.secondary,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      MoneyFormatter.format(
+                                        _payments.fold(
+                                            0.0, (sum, payment) => sum + payment.amount),
+                                      ),
+                                      style: theme.textTheme.headlineMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: colorScheme.secondary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      'Total Cobrado',
+                                      style: theme.textTheme.bodyMedium,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+                    },
                   ),
                   const SizedBox(height: 24),
                   DataTableX(

@@ -359,7 +359,7 @@ class DashboardService {
         final checkIn = attendance.checkInTime;
         final checkOut = attendance.checkOutTime;
 
-        if (checkIn != null && checkIn.isNotEmpty &&
+        if (checkIn.isNotEmpty &&
             checkOut != null && checkOut.isNotEmpty) {
           final checkInDate = DateTime.parse(checkIn);
           final checkOutDate = DateTime.parse(checkOut);
@@ -401,7 +401,7 @@ class DashboardService {
 
       for (final attendance in attendances) {
         final checkIn = attendance.checkInTime;
-        if (checkIn != null && checkIn.isNotEmpty) {
+        if (checkIn.isNotEmpty) {
           final date = DateTime.parse(checkIn);
           final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
@@ -459,7 +459,7 @@ class DashboardService {
 
       for (final attendance in attendances) {
         final checkIn = attendance.checkInTime;
-        if (checkIn != null && checkIn.isNotEmpty) {
+        if (checkIn.isNotEmpty) {
           final date = DateTime.parse(checkIn);
           final dayName = dayNames[date.weekday];
           final hour = date.hour;

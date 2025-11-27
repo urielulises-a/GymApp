@@ -164,7 +164,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: _selectedMemberId,
+                  initialValue: _selectedMemberId,
                   decoration: const InputDecoration(
                     labelText: 'Socio',
                     border: OutlineInputBorder(),
@@ -181,7 +181,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _selectedPlanId,
+                  initialValue: _selectedPlanId,
                   decoration: const InputDecoration(
                     labelText: 'Plan',
                     border: OutlineInputBorder(),
@@ -321,7 +321,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String?>(
-                value: tempStatus,
+                initialValue: tempStatus,
                 decoration: const InputDecoration(
                   labelText: 'Estado',
                   border: OutlineInputBorder(),
@@ -336,7 +336,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String?>(
-                value: tempPlan,
+                initialValue: tempPlan,
                 decoration: const InputDecoration(
                   labelText: 'Plan',
                   border: OutlineInputBorder(),
@@ -448,7 +448,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
         DateFormatter.formatDate(subscription.endDate),
         subscription.status,
         MoneyFormatter.format(subscription.amount),
-      ].map((e) => e ?? '').toList();
+      ];
     }).toList();
 
     DataExporter.copyAsCsv(
@@ -516,7 +516,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
         DateFormatter.formatDate(subscription.endDate),
         subscription.status,
         MoneyFormatter.format(subscription.amount),
-      ].map((e) => e ?? '').toList();
+      ];
     }).toList();
 
     return AppScaffold(
@@ -538,67 +538,152 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              children: [
-                                Icon(
-                                  Icons.subscriptions_outlined,
-                                  size: 32,
-                                  color: colorScheme.primary,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '${_subscriptions.length}',
-                                  style: theme.textTheme.headlineMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: colorScheme.primary,
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (constraints.maxWidth > 600) {
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: Card(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        Icons.subscriptions_outlined,
+                                        size: 32,
+                                        color: colorScheme.primary,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '${_subscriptions.length}',
+                                        style: theme.textTheme.headlineMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.primary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        'Suscripciones Activas',
+                                        style: theme.textTheme.bodyMedium,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Text(
-                                  'Suscripciones Activas',
-                                  style: theme.textTheme.bodyMedium,
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              children: [
-                                Icon(
-                                  Icons.attach_money_outlined,
-                                  size: 32,
-                                  color: colorScheme.secondary,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  MoneyFormatter.format(_subscriptions.fold(
-                                      0.0, (sum, sub) => sum + sub.amount)),
-                                  style: theme.textTheme.headlineMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: colorScheme.secondary,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Card(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        Icons.attach_money_outlined,
+                                        size: 32,
+                                        color: colorScheme.secondary,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        MoneyFormatter.format(_subscriptions.fold(
+                                            0.0, (sum, sub) => sum + sub.amount)),
+                                        style: theme.textTheme.headlineMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.secondary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        'Ingresos Totales',
+                                        style: theme.textTheme.bodyMedium,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Text(
-                                  'Ingresos Totales',
-                                  style: theme.textTheme.bodyMedium,
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
-                    ],
+                          ],
+                        );
+                      } else {
+                        return Column(
+                          children: [
+                            Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.subscriptions_outlined,
+                                      size: 32,
+                                      color: colorScheme.primary,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      '${_subscriptions.length}',
+                                      style: theme.textTheme.headlineMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: colorScheme.primary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      'Suscripciones Activas',
+                                      style: theme.textTheme.bodyMedium,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.attach_money_outlined,
+                                      size: 32,
+                                      color: colorScheme.secondary,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      MoneyFormatter.format(_subscriptions.fold(
+                                          0.0, (sum, sub) => sum + sub.amount)),
+                                      style: theme.textTheme.headlineMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: colorScheme.secondary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      'Ingresos Totales',
+                                      style: theme.textTheme.bodyMedium,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+                    },
                   ),
                   const SizedBox(height: 24),
                   DataTableX(

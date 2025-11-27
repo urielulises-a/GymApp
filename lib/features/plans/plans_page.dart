@@ -272,11 +272,19 @@ class _PlansPageState extends State<PlansPage> {
                             ),
                             child: ExpansionTile(
                               leading: CircleAvatar(
-                                child: Text(plan.name[0]),
+                                child: Text(
+                                  plan.name.isNotEmpty ? plan.name[0].toUpperCase() : 'P',
+                                ),
                               ),
-                              title: Text(plan.name),
+                              title: Text(
+                                plan.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                               subtitle: Text(
                                 '${MoneyFormatter.format(plan.price)} - ${plan.durationDays} días',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                               children: [
                                 Padding(
@@ -285,33 +293,68 @@ class _PlansPageState extends State<PlansPage> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text('Descripción: ${plan.description}'),
+                                      Text(
+                                        'Descripción: ${plan.description}',
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                       const SizedBox(height: 8),
-                                      Text('Características:'),
+                                      const Text('Características:'),
                                       ...plan.features.map(
-                                        (f) => Text('  • $f'),
+                                        (f) => Text(
+                                          '  • $f',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
                                       const SizedBox(height: 16),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.end,
-                                        children: [
-                                          TextButton.icon(
-                                            onPressed: () =>
-                                                _showPlanDialog(plan: plan),
-                                            icon: const Icon(Icons.edit),
-                                            label: const Text('Editar'),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          TextButton.icon(
-                                            onPressed: () => _deletePlan(plan),
-                                            icon: const Icon(Icons.delete),
-                                            label: const Text('Eliminar'),
-                                            style: TextButton.styleFrom(
-                                              foregroundColor: Colors.red,
-                                            ),
-                                          ),
-                                        ],
+                                      LayoutBuilder(
+                                        builder: (context, constraints) {
+                                          if (constraints.maxWidth > 300) {
+                                            return Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.end,
+                                              children: [
+                                                TextButton.icon(
+                                                  onPressed: () =>
+                                                      _showPlanDialog(plan: plan),
+                                                  icon: const Icon(Icons.edit),
+                                                  label: const Text('Editar'),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                TextButton.icon(
+                                                  onPressed: () => _deletePlan(plan),
+                                                  icon: const Icon(Icons.delete),
+                                                  label: const Text('Eliminar'),
+                                                  style: TextButton.styleFrom(
+                                                    foregroundColor: Colors.red,
+                                                  ),
+                                                ),
+                                              ],
+                                            );
+                                          } else {
+                                            return Column(
+                                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                                              children: [
+                                                FilledButton.icon(
+                                                  onPressed: () =>
+                                                      _showPlanDialog(plan: plan),
+                                                  icon: const Icon(Icons.edit),
+                                                  label: const Text('Editar'),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                OutlinedButton.icon(
+                                                  onPressed: () => _deletePlan(plan),
+                                                  icon: const Icon(Icons.delete),
+                                                  label: const Text('Eliminar'),
+                                                  style: OutlinedButton.styleFrom(
+                                                    foregroundColor: Colors.red,
+                                                  ),
+                                                ),
+                                              ],
+                                            );
+                                          }
+                                        },
                                       ),
                                     ],
                                   ),

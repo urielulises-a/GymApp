@@ -307,7 +307,7 @@ class _MembersPageState extends State<MembersPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _selectedPlanId,
+                  initialValue: _selectedPlanId,
                   decoration: const InputDecoration(
                     labelText: 'Plan',
                     border: OutlineInputBorder(),
@@ -324,7 +324,7 @@ class _MembersPageState extends State<MembersPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _selectedStatus,
+                  initialValue: _selectedStatus,
                   decoration: const InputDecoration(
                     labelText: 'Estado',
                     border: OutlineInputBorder(),
@@ -404,7 +404,7 @@ class _MembersPageState extends State<MembersPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String?>(
-                  value: tempStatus,
+                  initialValue: tempStatus,
                   decoration: const InputDecoration(
                     labelText: 'Estado',
                     border: OutlineInputBorder(),
@@ -420,7 +420,7 @@ class _MembersPageState extends State<MembersPage> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String?>(
-                  value: tempPlan,
+                  initialValue: tempPlan,
                   decoration: const InputDecoration(
                     labelText: 'Plan',
                     border: OutlineInputBorder(),
@@ -523,7 +523,7 @@ class _MembersPageState extends State<MembersPage> {
         DateFormatter.formatDate(member.joinDate),
         member.status,
         plan.name,
-      ].map((e) => e ?? '').toList();
+      ];
     }).toList();
 
     DataExporter.copyAsCsv(
@@ -734,24 +734,31 @@ class _MembersPageState extends State<MembersPage> {
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                       ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: statusColor.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: statusColor),
-                                    ),
-                                    child: Text(
-                                      member.status,
-                                      style: TextStyle(
-                                        color: statusColor,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 11,
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: statusColor.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: statusColor),
+                                      ),
+                                      child: Text(
+                                        member.status,
+                                        style: TextStyle(
+                                          color: statusColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ),
@@ -761,48 +768,135 @@ class _MembersPageState extends State<MembersPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const SizedBox(height: 4),
-                                  Text('Email: ${member.email}'),
-                                  Text('Teléfono: ${member.phone ?? 'No proporcionado'}'),
-                                  Text('Plan: ${plan.name}'),
-                                  Text('Ingreso: ${DateFormatter.formatDate(member.joinDate)}'),
+                                  Text(
+                                    'Email: ${member.email}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    'Teléfono: ${member.phone ?? 'No proporcionado'}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    'Plan: ${plan.name}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    'Ingreso: ${DateFormatter.formatDate(member.joinDate)}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ],
                               ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.visibility),
-                                    tooltip: 'Ver detalles',
-                                    onPressed: () => _openMemberDetail(member),
-                                    color: colorScheme.primary,
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.edit),
-                                    tooltip: 'Editar',
-                                    onPressed: () => _showAddMemberDialog(member: member),
-                                    color: Colors.blue,
-                                  ),
-                                  IconButton(
-                                    icon: Icon(
-                                      member.status == 'Activo'
-                                          ? Icons.person_remove
-                                          : Icons.person_add,
-                                    ),
-                                    tooltip: member.status == 'Activo'
-                                        ? 'Dar de baja'
-                                        : 'Reactivar',
-                                    onPressed: () => _toggleMemberStatus(member),
-                                    color: member.status == 'Activo'
-                                        ? Colors.orange
-                                        : Colors.green,
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete),
-                                    tooltip: 'Eliminar permanentemente',
-                                    onPressed: () => _deleteMember(member),
-                                    color: Colors.red,
-                                  ),
-                                ],
+                              trailing: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  if (constraints.maxWidth > 300) {
+                                    return Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.visibility),
+                                          tooltip: 'Ver detalles',
+                                          onPressed: () => _openMemberDetail(member),
+                                          color: colorScheme.primary,
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.edit),
+                                          tooltip: 'Editar',
+                                          onPressed: () => _showAddMemberDialog(member: member),
+                                          color: Colors.blue,
+                                        ),
+                                        IconButton(
+                                          icon: Icon(
+                                            member.status == 'Activo'
+                                                ? Icons.person_remove
+                                                : Icons.person_add,
+                                          ),
+                                          tooltip: member.status == 'Activo'
+                                              ? 'Dar de baja'
+                                              : 'Reactivar',
+                                          onPressed: () => _toggleMemberStatus(member),
+                                          color: member.status == 'Activo'
+                                              ? Colors.orange
+                                              : Colors.green,
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete),
+                                          tooltip: 'Eliminar permanentemente',
+                                          onPressed: () => _deleteMember(member),
+                                          color: Colors.red,
+                                        ),
+                                      ],
+                                    );
+                                  } else {
+                                    return PopupMenuButton(
+                                      icon: const Icon(Icons.more_vert),
+                                      itemBuilder: (context) => [
+                                        PopupMenuItem(
+                                          child: const Row(
+                                            children: [
+                                              Icon(Icons.visibility, size: 20),
+                                              SizedBox(width: 8),
+                                              Text('Ver detalles'),
+                                            ],
+                                          ),
+                                          onTap: () => Future.delayed(
+                                            const Duration(milliseconds: 100),
+                                            () => _openMemberDetail(member),
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          child: const Row(
+                                            children: [
+                                              Icon(Icons.edit, size: 20),
+                                              SizedBox(width: 8),
+                                              Text('Editar'),
+                                            ],
+                                          ),
+                                          onTap: () => Future.delayed(
+                                            const Duration(milliseconds: 100),
+                                            () => _showAddMemberDialog(member: member),
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                member.status == 'Activo'
+                                                    ? Icons.person_remove
+                                                    : Icons.person_add,
+                                                size: 20,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(member.status == 'Activo'
+                                                  ? 'Dar de baja'
+                                                  : 'Reactivar'),
+                                            ],
+                                          ),
+                                          onTap: () => Future.delayed(
+                                            const Duration(milliseconds: 100),
+                                            () => _toggleMemberStatus(member),
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          child: const Row(
+                                            children: [
+                                              Icon(Icons.delete, size: 20, color: Colors.red),
+                                              SizedBox(width: 8),
+                                              Text('Eliminar', style: TextStyle(color: Colors.red)),
+                                            ],
+                                          ),
+                                          onTap: () => Future.delayed(
+                                            const Duration(milliseconds: 100),
+                                            () => _deleteMember(member),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                },
                               ),
                               isThreeLine: true,
                             );

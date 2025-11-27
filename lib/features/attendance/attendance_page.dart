@@ -196,7 +196,7 @@ class _AttendancePageState extends State<AttendancePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String?>(
-                value: tempStatus,
+                initialValue: tempStatus,
                 decoration: const InputDecoration(
                   labelText: 'Estado',
                   border: OutlineInputBorder(),
@@ -210,7 +210,7 @@ class _AttendancePageState extends State<AttendancePage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String?>(
-                value: tempMember,
+                initialValue: tempMember,
                 decoration: const InputDecoration(
                   labelText: 'Socio',
                   border: OutlineInputBorder(),
@@ -465,7 +465,7 @@ class _AttendancePageState extends State<AttendancePage> {
                             children: [
                               Expanded(
                                 child: DropdownButtonFormField<String>(
-                                  value: _selectedMemberId,
+                                  initialValue: _selectedMemberId,
                                   decoration: const InputDecoration(
                                     labelText: 'Seleccionar Socio',
                                     border: OutlineInputBorder(),
