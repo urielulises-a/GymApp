@@ -187,6 +187,172 @@ lib/
 - **Modo demo** con instrucciones claras
 - **Responsive design** que se adapta a diferentes pantallas
 
+## Arquitectura del Proyecto
+
+```mermaid
+graph TB
+    subgraph "Capa de Presentación - UI"
+        MAIN[main.dart<br/>Entry Point]
+        APP[app.dart<br/>MaterialApp.router]
+        ROUTER[router.dart<br/>go_router]
+        
+        subgraph "Features - Páginas"
+            LOGIN[login_page.dart<br/>Autenticación]
+            DASHBOARD[dashboard_page.dart<br/>Métricas y Gráficas]
+            MEMBERS_P[members_page.dart<br/>CRUD Socios]
+            PLANS_P[plans_page.dart<br/>CRUD Planes]
+            SUBS_P[subscriptions_page.dart<br/>CRUD Suscripciones]
+            PAYS_P[payments_page.dart<br/>CRUD Pagos]
+            ATT_P[attendance_page.dart<br/>Check-in/out]
+            REPORTS_P[reports_page.dart<br/>Estadísticas]
+            SETTINGS_P[settings_page.dart<br/>Configuración]
+        end
+        
+        subgraph "Widgets Reutilizables"
+            SCAFFOLD[app_scaffold.dart<br/>Layout Base]
+            DATA_TABLE[data_table_x.dart<br/>Tabla con Búsqueda]
+            FORM_DIALOG[form_dialog.dart<br/>Diálogos]
+            KPI_CARD[kpi_card.dart<br/>Tarjetas KPI]
+            STATS_CARD[stats_card.dart<br/>Gráficas]
+        end
+    end
+    
+    subgraph "Capa de Servicios"
+        HTTP_S[http_service.dart<br/>GET, POST, PUT, DELETE]
+        STORAGE_S[storage_service.dart<br/>SharedPreferences]
+        
+        subgraph "Servicios de Negocio"
+            AUTH_S[auth_service.dart<br/>Login, Register, Logout]
+            MEMBERS_S[members_service.dart<br/>CRUD + Filtros]
+            PLANS_S[plans_service.dart<br/>CRUD]
+            SUBS_S[subscriptions_service.dart<br/>CRUD + Validaciones]
+            PAYS_S[payments_service.dart<br/>CRUD + Recibos]
+            ATT_S[attendance_service.dart<br/>Check-in/out]
+            REPORTS_S[reports_service.dart<br/>Métricas Agregadas]
+            DASHBOARD_S[dashboard_service.dart<br/>Datos Dashboard]
+        end
+    end
+    
+    subgraph "Capa de Modelos"
+        API_RESPONSE[api_response.dart<br/>Respuesta Estándar]
+        USER_M[user.dart<br/>Usuario]
+        MEMBER_M[member.dart<br/>Socio]
+        PLAN_M[plan.dart<br/>Plan]
+        SUB_M[subscription.dart<br/>Suscripción]
+        PAYMENT_M[payment.dart<br/>Pago]
+        ATT_M[attendance.dart<br/>Asistencia]
+    end
+    
+    subgraph "Utilidades"
+        DATES[dates.dart<br/>DateFormatter<br/>MoneyFormatter]
+        EXPORT[export_utils.dart<br/>CSV Export]
+    end
+    
+    subgraph "Configuración"
+        API_CONFIG[api_config.dart<br/>Endpoints + Headers]
+        ENV[.env<br/>API_BASE_URL]
+    end
+    
+    subgraph "Almacenamiento Local"
+        PREFS[(SharedPreferences<br/>Token + User Data)]
+    end
+    
+    subgraph "Backend API"
+        BACKEND[Backend Node.js<br/>http://localhost:3000/api/v1]
+    end
+    
+    MAIN --> APP
+    APP --> ROUTER
+    ROUTER --> LOGIN
+    ROUTER --> DASHBOARD
+    ROUTER --> MEMBERS_P
+    ROUTER --> PLANS_P
+    ROUTER --> SUBS_P
+    ROUTER --> PAYS_P
+    ROUTER --> ATT_P
+    ROUTER --> REPORTS_P
+    ROUTER --> SETTINGS_P
+    
+    LOGIN --> SCAFFOLD
+    DASHBOARD --> SCAFFOLD
+    MEMBERS_P --> SCAFFOLD
+    PLANS_P --> SCAFFOLD
+    SUBS_P --> SCAFFOLD
+    PAYS_P --> SCAFFOLD
+    ATT_P --> SCAFFOLD
+    REPORTS_P --> SCAFFOLD
+    SETTINGS_P --> SCAFFOLD
+    
+    DASHBOARD --> KPI_CARD
+    DASHBOARD --> STATS_CARD
+    MEMBERS_P --> DATA_TABLE
+    MEMBERS_P --> FORM_DIALOG
+    PLANS_P --> FORM_DIALOG
+    SUBS_P --> DATA_TABLE
+    PAYS_P --> DATA_TABLE
+    ATT_P --> DATA_TABLE
+    REPORTS_P --> STATS_CARD
+    
+    LOGIN --> AUTH_S
+    DASHBOARD --> REPORTS_S
+    DASHBOARD --> DASHBOARD_S
+    MEMBERS_P --> MEMBERS_S
+    PLANS_P --> PLANS_S
+    SUBS_P --> SUBS_S
+    PAYS_P --> PAYS_S
+    ATT_P --> ATT_S
+    REPORTS_P --> REPORTS_S
+    
+    AUTH_S --> HTTP_S
+    MEMBERS_S --> HTTP_S
+    PLANS_S --> HTTP_S
+    SUBS_S --> HTTP_S
+    PAYS_S --> HTTP_S
+    ATT_S --> HTTP_S
+    REPORTS_S --> HTTP_S
+    DASHBOARD_S --> HTTP_S
+    
+    AUTH_S --> STORAGE_S
+    HTTP_S --> STORAGE_S
+    
+    AUTH_S --> USER_M
+    MEMBERS_S --> MEMBER_M
+    PLANS_S --> PLAN_M
+    SUBS_S --> SUB_M
+    PAYS_S --> PAYMENT_M
+    ATT_S --> ATT_M
+    REPORTS_S --> API_RESPONSE
+    
+    MEMBERS_S --> API_RESPONSE
+    PLANS_S --> API_RESPONSE
+    SUBS_S --> API_RESPONSE
+    PAYS_S --> API_RESPONSE
+    ATT_S --> API_RESPONSE
+    
+    MEMBERS_P --> DATES
+    SUBS_P --> DATES
+    PAYS_P --> DATES
+    ATT_P --> DATES
+    DASHBOARD --> DATES
+    
+    MEMBERS_P --> EXPORT
+    SUBS_P --> EXPORT
+    PAYS_P --> EXPORT
+    ATT_P --> EXPORT
+    
+    HTTP_S --> API_CONFIG
+    API_CONFIG --> ENV
+    
+    STORAGE_S --> PREFS
+    
+    HTTP_S -->|HTTP/REST| BACKEND
+    
+    style MAIN fill:#e1f5ff
+    style BACKEND fill:#ffebee
+    style PREFS fill:#fff3e0
+    style HTTP_S fill:#f3e5f5
+```
+
 ## Arquitectura de la Integración
 
 ```

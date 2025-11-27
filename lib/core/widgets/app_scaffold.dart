@@ -292,56 +292,64 @@ void _showProfileMenu(BuildContext context, User? currentUser, Future<void> Func
   showModalBottomSheet(
     context: context,
     showDragHandle: true,
+    isScrollControlled: true,
     builder: (context) => Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircleAvatar(
-            radius: 36,
-            child: Text(
-              currentUser?.name.substring(0, 1).toUpperCase() ?? 'U',
-              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 36,
+              child: Text(
+                currentUser?.name.substring(0, 1).toUpperCase() ?? 'U',
+                style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            currentUser?.name ?? 'Usuario',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          Text(
-            currentUser?.email ?? 'Usuario',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 8),
-          Chip(
-            label: Text(
-              currentUser?.role.toUpperCase() ?? 'STAFF',
-              style: const TextStyle(fontSize: 11),
+            const SizedBox(height: 12),
+            Text(
+              currentUser?.name ?? 'Usuario',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
-            visualDensity: VisualDensity.compact,
-          ),
-          const SizedBox(height: 16),
-          ListTile(
-            leading: const Icon(Icons.settings_outlined),
-            title: const Text('Configuración'),
-            onTap: () {
-              Navigator.of(context).pop();
-              context.go('/settings');
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.logout_outlined),
-            title: const Text('Cerrar sesión'),
-            onTap: () {
-              Navigator.of(context).pop();
-              onLogout();
-            },
-          ),
-        ],
+            Text(
+              currentUser?.email ?? 'Usuario',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Chip(
+              label: Text(
+                currentUser?.role.toUpperCase() ?? 'STAFF',
+                style: const TextStyle(fontSize: 11),
+              ),
+              visualDensity: VisualDensity.compact,
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.settings_outlined),
+              title: const Text('Configuración'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.go('/settings');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout_outlined),
+              title: const Text('Cerrar sesión'),
+              onTap: () {
+                Navigator.of(context).pop();
+                onLogout();
+              },
+            ),
+          ],
+        ),
       ),
     ),
   );
